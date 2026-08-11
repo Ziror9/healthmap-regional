@@ -1,0 +1,28 @@
+{
+  "name": "@healthmap/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Camada de acesso a dados: Prisma, conexao PostgreSQL e repositorios",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "studio": "prisma studio",
+    "check": "tsx src/scripts/check-connection.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.0"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7",
+    "prisma": "^6.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

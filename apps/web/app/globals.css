@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Tipografia: pilha do sistema na Fase 0. Ver comentario em app/layout.tsx. */
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+      Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+      monospace;
+
+    --background: 210 40% 98%;
+    --foreground: 215 32% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 32% 14%;
+    --primary: 210 74% 26%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 213 27% 92%;
+    --secondary-foreground: 215 32% 14%;
+    --muted: 213 27% 94%;
+    --muted-foreground: 215 16% 42%;
+    --accent: 187 72% 30%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 22% 86%;
+    --input: 214 22% 86%;
+    --ring: 187 72% 30%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 215 38% 9%;
+    --foreground: 210 30% 92%;
+    --card: 215 33% 12%;
+    --card-foreground: 210 30% 92%;
+    --primary: 199 72% 58%;
+    --primary-foreground: 215 38% 9%;
+    --secondary: 215 28% 18%;
+    --secondary-foreground: 210 30% 92%;
+    --muted: 215 28% 16%;
+    --muted-foreground: 214 16% 62%;
+    --accent: 184 62% 46%;
+    --accent-foreground: 215 38% 9%;
+    --destructive: 0 62% 52%;
+    --destructive-foreground: 210 30% 92%;
+    --border: 215 25% 22%;
+    --input: 215 25% 22%;
+    --ring: 184 62% 46%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+}

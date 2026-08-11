@@ -1,0 +1,30 @@
+// =============================================================================
+// HealthMap Regional - Prisma schema
+// =============================================================================
+// FASE 0 (fundacao): este schema esta INTENCIONALMENTE VAZIO de entidades.
+// O objetivo aqui e apenas provar a conexao com o PostgreSQL e habilitar
+// `prisma generate` / `prisma migrate dev`.
+//
+// O modelo de dominio completo entra na FASE 1, conforme documentado em
+// docs/data-model.md. Resumo do que vira:
+//
+//   silver/  Municipio, RegiaoSaude, Competencia, GrupoCid, Estabelecimento
+//   gold/    FatoInternacaoResidencia, FatoInternacaoLocal,
+//            FatoCapacidadeLeitos, Populacao, IndicadorMunicipal,
+//            RiskComponenteValor, RiskScore
+//   meta/    IndicadorDefinicao, RiskConfig, RiskConfigComponente,
+//            FonteDados, IngestaoExecucao, QualidadeCheck, AuditLog,
+//            Usuario, PerfilAtribuicao, EscopoTerritorial
+//
+// A separacao em multiplos schemas PostgreSQL (silver/gold/meta) exige o
+// preview feature `multiSchema` e sera ativada na Fase 1, nao antes.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
