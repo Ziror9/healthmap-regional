@@ -16,14 +16,19 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 2 (Radar de Risco) concluida, parcialmente.** Schema,
-migrations, base DEMO e motor de risco (`packages/risk`) existem e estao
-validados. Do indice, so `PRESSAO_HOSPITALAR_ESTIMADA` produz valor - os
-componentes `TENDENCIA` e `SEVERIDADE` ficam estruturalmente prontos mas
-sempre indisponiveis por lacunas metodologicas explicitas (nao
-implementadas, nao inventadas). Nao ha dashboard nem API analitica - isso
-entra nas Fases 3-4. Ver [`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md)
-e [`docs/fase-2-relatorio.md`](docs/fase-2-relatorio.md).
+**Estado atual: Fase 3 (API) concluida, parcialmente.** Schema, migrations,
+base DEMO, motor de risco (`packages/risk`) e uma API REST somente-leitura
+(`apps/api`) existem e estao validados. Do indice, so
+`PRESSAO_HOSPITALAR_ESTIMADA` produz valor - os componentes `TENDENCIA` e
+`SEVERIDADE` ficam estruturalmente prontos mas sempre indisponiveis por
+lacunas metodologicas explicitas (nao implementadas, nao inventadas). A API
+expoe catalogo geografico (`/api/municipios`, `/api/regioes`,
+`/api/competencias`), indicadores (`/api/indicadores`) e o Radar
+(`/api/risk`) - publica, sem autenticacao. Ha uma pagina tecnica de
+validacao em `apps/web` (`/radar`), nao o dashboard final (Fase 4). Ver
+[`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md),
+[`docs/fase-2-relatorio.md`](docs/fase-2-relatorio.md) e
+[`docs/fase-3-relatorio.md`](docs/fase-3-relatorio.md).
 
 ## Objetivo
 

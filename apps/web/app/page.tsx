@@ -1,4 +1,5 @@
 import { Activity, Database, Layers, ServerCog } from 'lucide-react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -51,9 +52,16 @@ export default function Home() {
         </p>
 
         <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          A fundacao tecnica esta montada. Ainda nao ha dashboard, indicadores, Radar de Risco nem
-          qualquer dado carregado &mdash; a Fase 1 introduz o modelo de dados e a base DEMO.
+          A fundacao tecnica esta montada. Ainda nao ha dashboard &mdash; isso entra na Fase 4. A API
+          ja expoe o catalogo geografico e o Radar de Risco calculado sobre a base DEMO.
         </p>
+
+        <Link
+          href="/radar"
+          className="mt-6 inline-flex items-center text-sm font-medium text-accent underline-offset-4 hover:underline"
+        >
+          Ver pagina tecnica de validacao da API (Fase 3) &rarr;
+        </Link>
       </div>
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

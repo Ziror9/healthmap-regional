@@ -96,21 +96,62 @@ honestamente indisponiveis em vez de produzir um numero inventado.
 
 ---
 
-## Fase 3 - API
+## Fase 3 - API `CONCLUIDA (parcial - ver limitacoes)`
 
-**Objetivo.** Expor os dados analiticos com proveniencia obrigatoria.
+**Objetivo.** Expor os dados analiticos com proveniencia obrigatoria, somente
+leitura.
 
-**Entregas.** Endpoints de KPIs, mapa, ranking, serie temporal, detalhe
-municipal, metodologia e configuracoes de risco; envelope de proveniencia em
-todas as respostas; validacao de entrada; paginacao; tratamento de erros;
-camada `policies` com politica permissiva substituivel; reaplicacao da supressao
-sobre filtros combinados; documentacao da API.
+**Entregas.** API REST minima em `apps/api`
+(`routes -> controllers -> services -> packages/db`):
 
-**Dependencias.** Fases 1 e 2. Definicao pendente: semantica operacional dos
-KPIs de cabecalho.
+- Catalogo: `GET /api/municipios` (+ `/:municipioId`), `/api/regioes`,
+  `/api/competencias`, `/api/indicadores` - paginados, com filtros minimos
+  (`regiaoSaudeId`, `ano`);
+- Radar: `GET /api/risk` (ranking), `/api/risk/:municipioId`,
+  `/api/risk/:municipioId/components` - filtros `competenciaId`,
+  `riskConfigId`, `origem`;
+- Contratos Zod centralizados em `packages/contracts` (paginacao, catalogo
+  geografico, competencia, risk, indicador, detalhe de municipio, erro
+  padrao); enums `ClassificacaoRisco`/`Confiabilidade`/`ComponenteRisco`/
+  `IndicadorDirecao` adicionados ao lado de `Origem`/`Natureza` ja existentes;
+- Repositorios de leitura em `packages/db`
+  (`repositories/catalog.ts`, `repositories/riskQuery.ts`) - so leem
+  `RiskScore`/`RiskComponenteValor`/`IndicadorMunicipal` ja materializados
+  pela Fase 2, nenhuma agregacao de fato bruto acontece na Fase 3;
+- resolucao documentada dos filtros quando omitidos (competencia mais
+  recente; `RiskConfig` oficial ou, na ausencia, a mais recente com
+  componentes ativos; origem nao filtrada por padrao, mas a API responde
+  `409` se mais de uma origem estiver presente no resultado, em vez de
+  misturar REAL/DEMO silenciosamente);
+- 32 testes de integracao de `apps/api` contra o PostgreSQL real + 2 testes
+  de fronteira arquitetural (nenhum Prisma/SQL em controller; `apps/web` nao
+  importa `@healthmap/db` nem `@prisma/client`);
+- pagina tecnica de validacao em `apps/web` (`/radar`) consumindo a API real,
+  com estados de carregamento/erro/vazio e marcacao DEMO explicita por item.
+
+Detalhes completos: [`docs/fase-3-relatorio.md`](fase-3-relatorio.md).
+
+**Dependencias.** Fases 1 e 2.
+
+**Nao entregue nesta rodada** (fora do pedido explicito desta fase, fica para
+depois):
+
+- endpoints de KPI de cabecalho, mapa, serie temporal e pagina de
+  metodologia dedicados - a semantica operacional dos KPIs continua
+  indefinida;
+- camada `policies` (politica de acesso) - API e publica, sem autenticacao,
+  ate a Fase 6;
+- reaplicacao de supressao sobre agregacoes/combinacoes de filtro: nao foi
+  necessaria porque a Fase 3 nao agrega fato bruto (`FatoInternacaoResidencia`/
+  `FatoInternacaoLocal`) em nenhum endpoint - so serve resultados ja
+  materializados pela Fase 2, onde a regra `NULL != 0` ja foi aplicada
+  (`bool_or` no SQL de agregacao). Volta a ser relevante se uma fase futura
+  criar um endpoint que agregue fato bruto diretamente;
+- endpoint de escrita/administracao de `RiskConfig`.
 
 **Criterio de conclusao.** API tipada, testada e documentada; nenhum endpoint
-retorna valor sem `meta`.
+analitico devolve valor sem indicar origem/natureza. Atingido para o escopo
+entregue - ver `docs/fase-3-relatorio.md` para as validacoes executadas.
 
 ---
 

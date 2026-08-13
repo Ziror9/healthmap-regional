@@ -7,10 +7,12 @@
 
 - **O projeto nao esta pronto para uso operacional.** Nao deve embasar decisao
   de saude publica no estado atual.
-- Fases 0, 1 e 2 concluidas: existe fundacao tecnica, schema de dominio,
-  migrations, base DEMO deterministica e um motor de risco funcional sobre
-  essa base. Nao existe produto navegavel.
-- Nao ha dashboard nem API analitica publica - comecam na Fase 3/4.
+- Fases 0-3 concluidas (Fase 2 e Fase 3 parciais - ver secoes 5 e 8): existe
+  fundacao tecnica, schema de dominio, migrations, base DEMO deterministica,
+  motor de risco funcional sobre essa base, e uma API REST somente-leitura
+  expondo esses dados. Nao existe produto navegavel (dashboard).
+- **A API (Fase 3) e publica, sem autenticacao nem RBAC efetivo** - ver
+  secao 7. Nao deve ser exposta fora de ambiente de desenvolvimento.
 - **O Radar de Risco calculado na Fase 2 e parcial, nao os 4 componentes
   previstos.** Ver secao 5 abaixo.
 
@@ -109,12 +111,16 @@
 - Limiar adotado: `n < 5`. Aplicado no seed DEMO (e sera aplicado no ETL real
   na Fase 5) na granularidade minima do fato (`suprimido = true`, medidas
   numericas = `NULL`), reforcado por CHECK constraint no banco.
-- **Nao implementado ainda:** reaplicacao da regra sobre agregacoes e
-  combinacoes de filtro na API. Uma soma ingenua de celulas suprimidas e
-  nao-suprimidas pode, via `SUM()` em SQL (que ignora `NULL` silenciosamente),
-  subestimar um total sem sinalizar que ele esta incompleto. Isso e escopo
-  explicito da Fase 3 e precisa ser resolvido antes de qualquer endpoint
-  agregado ir ao ar.
+- **A API da Fase 3 nao agrega fato bruto em nenhum endpoint** - so serve
+  `RiskScore`/`RiskComponenteValor`/`IndicadorMunicipal` ja materializados
+  pela Fase 2, onde a regra `NULL != 0` ja foi aplicada na agregacao
+  (`bool_or` no SQL, ver `packages/db/src/repositories/risk.ts`). A API so
+  repassa os campos nulos como estao - nunca os transforma em `0`
+  (verificado por teste automatizado em `apps/api/src/__tests__/risk.test.ts`).
+  A preocupacao original desta secao (soma ingenua via `SUM()` subestimando
+  um total incompleto) continua valendo para qualquer endpoint FUTURO que
+  venha a agregar fato bruto diretamente (ex.: um KPI de cabecalho na
+  Fase 4) - precisa ser resolvida antes desse endpoint existir.
 - O valor `5` nao esta embutido em codigo sem documentacao, mas tambem nao
   esta versionado em banco junto da metodologia do Radar (decisao explicita
   desta fase, para nao acoplar supressao de fatos brutos ao ciclo de vida do
@@ -139,3 +145,28 @@
   responsavel, eventual dispensa de CEP) **nao foi validado juridicamente**. O
   projeto adota postura conservadora - dados publicos, agregados, sem base
   identificavel - mas nao declara conformidade.
+
+## 8. API (Fase 3)
+
+- **API publica, sem autenticacao.** Qualquer cliente que alcance a porta da
+  API le qualquer dado exposto pelos endpoints - nao ha RBAC efetivo (Fase 6)
+  nem camada `policies`. So deve rodar em ambiente de desenvolvimento.
+- **Escopo de endpoints reduzido ao explicitamente pedido**: catalogo
+  (municipios/regioes/competencias/indicadores) e Radar
+  (ranking/detalhe/componentes). Nao existem ainda endpoints de KPI de
+  cabecalho, mapa, serie temporal ou pagina de metodologia - a semantica
+  operacional dos KPIs nunca foi definida (pendencia herdada do roadmap
+  original da Fase 3).
+- **Resolucao de filtros quando omitidos** (documentada em
+  `docs/fase-3-relatorio.md` e no codigo de
+  `apps/api/src/services/risk.service.ts`): competencia mais recente por
+  `dataRef`; `RiskConfig` oficial se existir, senao a mais recente com
+  componentes ativos (nenhuma `RiskConfig` e oficial em nenhum ambiente
+  conhecido nesta fase); origem nao filtrada por padrao, mas a API responde
+  `409 ORIGEM_AMBIGUA` se mais de uma origem estiver presente no resultado -
+  nunca mistura REAL e DEMO silenciosamente numa mesma lista.
+- **Nenhum endpoint de escrita/administracao de `RiskConfig`** foi criado -
+  toda `RiskConfig` usada pela API vem do que ja foi semeado/calculado pelas
+  Fases 1/2.
+- Paginacao com teto de 200 itens por pagina - nao testada contra volume
+  real (a base DEMO atual tem poucas dezenas de linhas por tabela).

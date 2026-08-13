@@ -40,3 +40,42 @@ export const EixoTerritorial = {
   INTERNACAO: 'INTERNACAO',
 } as const;
 export type EixoTerritorial = (typeof EixoTerritorial)[keyof typeof EixoTerritorial];
+
+/**
+ * Enums do dominio do Radar de Risco (Fase 2), replicados aqui para o
+ * contrato HTTP - mesma logica de duplicacao intencional de Origem/Natureza
+ * (ver packages/db/prisma/schema.prisma e packages/risk/src/types.ts: cada
+ * lado/camada mantem sua propria definicao de tipo, nao importa a de outro
+ * package. Fase 3 e o primeiro consumidor HTTP desses valores.
+ */
+
+export const ComponenteRisco = {
+  PRESSAO_HOSPITALAR_ESTIMADA: 'PRESSAO_HOSPITALAR_ESTIMADA',
+  TENDENCIA: 'TENDENCIA',
+  SEVERIDADE: 'SEVERIDADE',
+  VULNERABILIDADE: 'VULNERABILIDADE',
+} as const;
+export type ComponenteRisco = (typeof ComponenteRisco)[keyof typeof ComponenteRisco];
+
+export const ClassificacaoRisco = {
+  CRITICO: 'CRITICO',
+  ALTO: 'ALTO',
+  MEDIO: 'MEDIO',
+  BAIXO: 'BAIXO',
+  MUITO_BAIXO: 'MUITO_BAIXO',
+} as const;
+export type ClassificacaoRisco = (typeof ClassificacaoRisco)[keyof typeof ClassificacaoRisco];
+
+export const Confiabilidade = {
+  ALTA: 'ALTA',
+  MEDIA: 'MEDIA',
+  BAIXA: 'BAIXA',
+} as const;
+export type Confiabilidade = (typeof Confiabilidade)[keyof typeof Confiabilidade];
+
+/** Direcao de um IndicadorDefinicao: se valor maior ou menor representa pior situacao. */
+export const IndicadorDirecao = {
+  MAIOR_PIOR: 'MAIOR_PIOR',
+  MENOR_PIOR: 'MENOR_PIOR',
+} as const;
+export type IndicadorDirecao = (typeof IndicadorDirecao)[keyof typeof IndicadorDirecao];
