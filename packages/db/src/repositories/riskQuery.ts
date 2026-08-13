@@ -88,6 +88,8 @@ export interface RiskScoreListItem {
   confiabilidade: ConfiabilidadeValor;
   natureza: NaturezaValor;
   origem: OrigemValor;
+  /** RiskScore.createdAt em ISO - indicador de frescor (Fase 4), nunca fabricado no frontend. */
+  calculadoEm: string;
 }
 
 export async function listRiskScores(
@@ -129,6 +131,7 @@ export async function listRiskScores(
       confiabilidade: r.confiabilidade,
       natureza: r.natureza,
       origem: r.origem,
+      calculadoEm: r.createdAt.toISOString(),
     })),
     total,
   };
@@ -168,6 +171,7 @@ export async function getRiskScoreMunicipio(
     confiabilidade: r.confiabilidade,
     natureza: r.natureza,
     origem: r.origem,
+    calculadoEm: r.createdAt.toISOString(),
   };
 }
 
@@ -202,6 +206,7 @@ export async function listRiskScoresDoMunicipio(
     confiabilidade: r.confiabilidade,
     natureza: r.natureza,
     origem: r.origem,
+    calculadoEm: r.createdAt.toISOString(),
   }));
 }
 

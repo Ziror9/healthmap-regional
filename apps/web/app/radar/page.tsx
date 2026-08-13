@@ -1,177 +1,268 @@
 'use client';
 
-import type { RiskScoreItemDTO } from '@healthmap/contracts';
-import { AlertTriangle, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { ApiRequestError, fetchApi } from '@/lib/api';
+import type { ClassificacaoRisco, Confiabilidade, RiskScoreItemDTO } from '@healthmap/contracts';
+import { ArrowDown, ArrowUp, ArrowUpDown, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { ConfidenceBadge } from '@/components/domain/confidence-badge';
+import { FilterBar } from '@/components/domain/filter-bar';
+import { FreshnessIndicator } from '@/components/domain/freshness-indicator';
+import { ProvenanceBadge } from '@/components/domain/provenance-badge';
+import { RiskBadge } from '@/components/domain/risk-badge';
+import { RiskScaleLegend } from '@/components/domain/risk-scale-legend';
+import { PageContent } from '@/components/layout/page-content';
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/states/empty-state';
+import { ErrorState } from '@/components/states/error-state';
+import { LoadingState } from '@/components/states/loading-state';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ApiRequestError, getRisk } from '@/lib/api';
+import { formatCompetenciaLabel, formatIndice } from '@/lib/format';
+import { CLASSIFICACAO_ORDEM, getClassificacaoDisplay } from '@/lib/risk-display';
+import { useRiskFiltersUrl } from '@/lib/use-risk-filters';
+import { cn } from '@/lib/utils';
 
 /**
- * Pagina TECNICA de validacao da Fase 3 - prova que o frontend consegue
- * consumir a API real (GET /api/risk) e exibir dados com proveniencia
- * explicita. NAO e o dashboard final (isso e Fase 4): sem mapa, sem
- * filtros, sem design definitivo - so a prova de que a integracao funciona.
- *
- * Nunca calcula nada aqui: indice/classificacao/confiabilidade vem prontos
- * da API, que por sua vez so le RiskScore ja materializado pela Fase 2.
+ * Radar de Risco - ranking completo. Busca GET /api/risk (pageSize alto - a
+ * base DEMO tem poucas dezenas de municipios) e faz ordenacao/filtro por
+ * classificacao no navegador, sobre a lista ja calculada pela API. Nao ha
+ * recalculo de indice, peso ou classificacao aqui.
  */
-
-interface RiskListMeta {
-  filtros: { competenciaId: number; riskConfigId: number | null; origem: string | null };
-  pagination: { page: number; pageSize: number; total: number; totalPages: number };
-}
-
-interface RiskListResponse {
-  data: RiskScoreItemDTO[];
-  meta: RiskListMeta;
-}
 
 type Estado =
   | { tipo: 'carregando' }
   | { tipo: 'erro'; mensagem: string }
-  | { tipo: 'pronto'; resposta: RiskListResponse };
+  | { tipo: 'pronto'; itens: RiskScoreItemDTO[] };
 
-export default function RadarPage() {
+type SortKey = 'indice' | 'municipio' | 'classificacao' | 'confiabilidade';
+type SortDir = 'asc' | 'desc';
+
+const CONFIABILIDADE_ORDEM: Record<Confiabilidade, number> = { ALTA: 3, MEDIA: 2, BAIXA: 1 };
+
+function RadarContent() {
+  const { filtros } = useRiskFiltersUrl();
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
+  const [classificacoesAtivas, setClassificacoesAtivas] = useState<Set<ClassificacaoRisco>>(new Set());
+  const [sortKey, setSortKey] = useState<SortKey>('indice');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   useEffect(() => {
     let cancelado = false;
+    setEstado({ tipo: 'carregando' });
 
-    async function carregar(): Promise<void> {
-      setEstado({ tipo: 'carregando' });
-      try {
-        const resposta = await fetchApi<RiskListResponse>('/api/risk?pageSize=20');
-        if (!cancelado) setEstado({ tipo: 'pronto', resposta });
-      } catch (error) {
+    getRisk({ ...filtros, pageSize: 200 })
+      .then((resposta) => {
+        if (!cancelado) setEstado({ tipo: 'pronto', itens: resposta.data });
+      })
+      .catch((erro: unknown) => {
         if (cancelado) return;
-        const mensagem =
-          error instanceof ApiRequestError
-            ? `${error.message} (HTTP ${error.status}${error.code ? `, ${error.code}` : ''})`
-            : error instanceof Error
-              ? error.message
-              : 'Falha desconhecida ao consultar a API.';
+        const mensagem = erro instanceof ApiRequestError ? erro.message : 'Falha desconhecida ao consultar a API.';
         setEstado({ tipo: 'erro', mensagem });
-      }
-    }
+      });
 
-    void carregar();
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [filtros.competenciaId, filtros.riskConfigId, filtros.origem]);
 
-  return (
-    <main className="container flex min-h-screen flex-col py-16">
-      <div className="max-w-3xl">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="accent">Validacao tecnica</Badge>
-          <Badge variant="outline">Fase 3 &middot; API</Badge>
-        </div>
-        <h1 className="mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">Radar de Risco</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          Esta tela consome <code className="font-mono">GET /api/risk</code> direto da API. Nao e o
-          dashboard final (Fase 4) - existe apenas para provar que apps/web consegue ler dados reais
-          do banco, atraves da API, sem acessar o Prisma diretamente.
-        </p>
-      </div>
+  function alternarClassificacao(classificacao: ClassificacaoRisco): void {
+    setClassificacoesAtivas((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(classificacao)) novo.delete(classificacao);
+      else novo.add(classificacao);
+      return novo;
+    });
+  }
 
-      <div className="mt-10">
-        {estado.tipo === 'carregando' && <EstadoCarregando />}
-        {estado.tipo === 'erro' && <EstadoErro mensagem={estado.mensagem} />}
-        {estado.tipo === 'pronto' && <EstadoPronto resposta={estado.resposta} />}
-      </div>
-    </main>
-  );
-}
-
-function EstadoCarregando() {
-  return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-      Carregando dados da API...
-    </div>
-  );
-}
-
-function EstadoErro({ mensagem }: { mensagem: string }) {
-  return (
-    <Card className="border-destructive/50">
-      <CardContent className="flex items-start gap-3 pt-5">
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden />
-        <div>
-          <p className="text-sm font-medium">Nao foi possivel carregar o Radar de Risco.</p>
-          <p className="mt-1 text-sm text-muted-foreground">{mensagem}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function EstadoPronto({ resposta }: { resposta: RiskListResponse }) {
-  if (resposta.data.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-5">
-          <p className="text-sm text-muted-foreground">
-            Nenhum RiskScore disponivel para os filtros resolvidos (competencia{' '}
-            {resposta.meta.filtros.competenciaId}, riskConfig {resposta.meta.filtros.riskConfigId ?? '—'}).
-            Isso e uma resposta coerente, nao um erro: pode significar que o calculo de risco (Fase 2)
-            ainda nao rodou para essa combinacao.
-          </p>
-        </CardContent>
-      </Card>
-    );
+  function alternarOrdenacao(chave: SortKey): void {
+    if (sortKey === chave) {
+      setSortDir((atual) => (atual === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(chave);
+      setSortDir(chave === 'municipio' ? 'asc' : 'desc');
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Competencia {resposta.meta.filtros.competenciaId} &middot; RiskConfig{' '}
-        {resposta.meta.filtros.riskConfigId ?? '—'} &middot; {resposta.meta.pagination.total} municipio(s)
-      </p>
+    <>
+      <PageHeader
+        title="Radar de Risco"
+        description="Ranking de municípios pelo índice do Radar de Risco."
+        actions={<FilterBar />}
+      />
+      <PageContent className="space-y-4">
+        {estado.tipo === 'carregando' && <LoadingState label="Carregando ranking..." />}
+        {estado.tipo === 'erro' && <ErrorState description={estado.mensagem} />}
+        {estado.tipo === 'pronto' && (
+          <RadarPronto
+            itens={estado.itens}
+            classificacoesAtivas={classificacoesAtivas}
+            onToggleClassificacao={alternarClassificacao}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={alternarOrdenacao}
+          />
+        )}
+      </PageContent>
+    </>
+  );
+}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 font-medium">Municipio</th>
-              <th className="px-4 py-3 font-medium">Indice</th>
-              <th className="px-4 py-3 font-medium">Classificacao</th>
-              <th className="px-4 py-3 font-medium">Confiabilidade</th>
-              <th className="px-4 py-3 font-medium">Proveniencia</th>
-            </tr>
-          </thead>
-          <tbody>
-            {resposta.data.map((item) => (
-              <tr key={`${item.municipio.id}-${item.riskConfigId}`} className="border-t border-border">
-                <td className="px-4 py-3">
-                  <div className="font-medium">{item.municipio.nome}</div>
-                  <div className="font-mono text-xs text-muted-foreground">{item.municipio.codigoIbge7}</div>
-                </td>
-                <td className="px-4 py-3 font-mono">{item.indice.toFixed(4)}</td>
-                <td className="px-4 py-3">
-                  <Badge variant="outline">{item.classificacao}</Badge>
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">{item.confiabilidade}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1">
-                    <Badge variant={item.origem === 'DEMO' ? 'accent' : 'muted'}>{item.origem}</Badge>
-                    <Badge variant="muted">{item.natureza}</Badge>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+function SortHeader({
+  label,
+  chave,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  chave: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (chave: SortKey) => void;
+}) {
+  const ativo = sortKey === chave;
+  const Icon: LucideIcon = !ativo ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(chave)}
+      className={cn('inline-flex items-center gap-1 hover:text-foreground', ativo && 'text-foreground')}
+    >
+      {label}
+      <Icon className="h-3 w-3" aria-hidden />
+    </button>
+  );
+}
+
+function RadarPronto({
+  itens,
+  classificacoesAtivas,
+  onToggleClassificacao,
+  sortKey,
+  sortDir,
+  onSort,
+}: {
+  itens: RiskScoreItemDTO[];
+  classificacoesAtivas: Set<ClassificacaoRisco>;
+  onToggleClassificacao: (classificacao: ClassificacaoRisco) => void;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (chave: SortKey) => void;
+}) {
+  const itensExibidos = useMemo(() => {
+    const base = classificacoesAtivas.size === 0 ? itens : itens.filter((item) => classificacoesAtivas.has(item.classificacao));
+    const sinal = sortDir === 'asc' ? 1 : -1;
+    return [...base].sort((a, b) => {
+      if (sortKey === 'indice') return (a.indice - b.indice) * sinal;
+      if (sortKey === 'municipio') return a.municipio.nome.localeCompare(b.municipio.nome) * sinal;
+      if (sortKey === 'classificacao') {
+        return (getClassificacaoDisplay(a.classificacao).nivel - getClassificacaoDisplay(b.classificacao).nivel) * sinal;
+      }
+      return (CONFIABILIDADE_ORDEM[a.confiabilidade] - CONFIABILIDADE_ORDEM[b.confiabilidade]) * sinal;
+    });
+  }, [itens, classificacoesAtivas, sortKey, sortDir]);
+
+  const primeiroItem = itens[0];
+
+  return (
+    <div className="space-y-4">
+      {primeiroItem && (
+        <FreshnessIndicator
+          competenciaLabel={formatCompetenciaLabel(primeiroItem.competencia.ano, primeiroItem.competencia.mes)}
+          calculadoEm={primeiroItem.calculadoEm}
+        />
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-muted-foreground">Classificação:</span>
+          {CLASSIFICACAO_ORDEM.map((classificacao) => {
+            const display = getClassificacaoDisplay(classificacao);
+            const ativo = classificacoesAtivas.has(classificacao);
+            const Icon = display.icon;
+            return (
+              <button
+                key={classificacao}
+                type="button"
+                onClick={() => onToggleClassificacao(classificacao)}
+                aria-pressed={ativo}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
+                  ativo
+                    ? cn(display.textClass, display.bgClass, display.borderClass)
+                    : 'border-border text-muted-foreground hover:bg-surface-muted',
+                )}
+              >
+                <Icon className="h-3 w-3" aria-hidden />
+                {display.label}
+              </button>
+            );
+          })}
+        </div>
+        <RiskScaleLegend className="hidden lg:flex" />
       </div>
 
-      <p className="border-l-2 border-border pl-4 font-mono text-xs leading-relaxed text-muted-foreground">
-        Indice analitico e experimental (Radar de Risco Regional). Nao e diagnostico clinico nem
-        avaliacao de qualidade assistencial. {resposta.meta.filtros.origem === 'DEMO'
-          ? 'Todos os valores acima sao dados DEMO (sinteticos) - nao representam a situacao real de nenhum municipio.'
-          : ''}
-      </p>
+      {itensExibidos.length === 0 ? (
+        <EmptyState
+          title="Nenhum município corresponde aos filtros."
+          description="Ajuste a competência, a origem ou a classificação selecionada."
+        />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12">#</TableHead>
+              <TableHead>
+                <SortHeader label="Município" chave="municipio" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="Índice" chave="indice" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="Classificação" chave="classificacao" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              </TableHead>
+              <TableHead>
+                <SortHeader label="Confiabilidade" chave="confiabilidade" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
+              </TableHead>
+              <TableHead>Proveniência</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {itensExibidos.map((item, indice) => (
+              <TableRow key={item.municipio.id}>
+                <TableCell className="text-xs text-muted-foreground">{indice + 1}</TableCell>
+                <TableCell>
+                  <Link
+                    href={`/municipios/${item.municipio.id}`}
+                    className="font-medium text-foreground hover:text-primary hover:underline"
+                  >
+                    {item.municipio.nome}
+                  </Link>
+                </TableCell>
+                <TableCell className="font-mono">{formatIndice(item.indice)}</TableCell>
+                <TableCell>
+                  <RiskBadge classificacao={item.classificacao} />
+                </TableCell>
+                <TableCell>
+                  <ConfidenceBadge confiabilidade={item.confiabilidade} />
+                </TableCell>
+                <TableCell>
+                  <ProvenanceBadge origem={item.origem} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
+  );
+}
+
+export default function RadarPage() {
+  return (
+    <Suspense fallback={<LoadingState label="Carregando..." />}>
+      <RadarContent />
+    </Suspense>
   );
 }

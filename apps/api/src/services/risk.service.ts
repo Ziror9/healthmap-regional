@@ -115,6 +115,7 @@ function toItemDTO(item: RiskScoreListItem): RiskScoreItemDTO {
     confiabilidade: item.confiabilidade,
     natureza: item.natureza,
     origem: item.origem,
+    calculadoEm: item.calculadoEm,
   };
 }
 

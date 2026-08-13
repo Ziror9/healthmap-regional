@@ -22,6 +22,7 @@ interface RiskScoreItem {
   confiabilidade: string;
   natureza: string;
   origem: string;
+  calculadoEm: string;
 }
 
 interface RiskComponenteItem {
@@ -53,6 +54,8 @@ describe('GET /api/risk', () => {
       expect(item.natureza).toBeTruthy();
       // dados DEMO continuam explicitamente identificados em cada item
       expect(item.origem).toBe('DEMO');
+      // indicador de frescor (Fase 4): timestamp real de calculo, nao fabricado
+      expect(new Date(item.calculadoEm).toString()).not.toBe('Invalid Date');
     }
   });
 

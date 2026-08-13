@@ -29,6 +29,8 @@ export const riskScoreItemSchema = z.object({
   confiabilidade: z.nativeEnum(Confiabilidade),
   natureza: z.nativeEnum(Natureza),
   origem: z.nativeEnum(Origem),
+  /** RiskScore.createdAt - quando esta linha foi calculada (Fase 4: indicador de frescor). */
+  calculadoEm: z.string().datetime(),
 });
 export type RiskScoreItemDTO = z.infer<typeof riskScoreItemSchema>;
 

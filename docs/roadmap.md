@@ -155,20 +155,56 @@ entregue - ver `docs/fase-3-relatorio.md` para as validacoes executadas.
 
 ---
 
-## Fase 4 - Dashboard
+## Fase 4 - Dashboard `CONCLUIDA (parcial - ver limitacoes)`
 
-**Objetivo.** Produto navegavel de ponta a ponta sobre dados DEMO.
+**Objetivo.** Produto navegavel de ponta a ponta sobre dados DEMO, com
+identidade visual propria de plataforma enterprise.
 
-**Entregas.** Layout do produto; KPIs; mapa de calor (Leaflet + GeoJSON de SP);
-Radar de Risco; serie temporal; ranking com drill-down; pagina de municipio;
-pagina de metodologia; filtros globais; design system de proveniencia (marcador
-DEMO, selo de estimativa, barra de frescor, marcacao de baixa confiabilidade);
-escala de risco legivel sem depender apenas de cor.
+**Entregas.** Design system claro (tokens de superficie, texto, cor
+institucional, semanticas e escala de risco em `apps/web/app/globals.css` +
+`tailwind.config.ts`); shell de navegacao (sidebar responsiva + cabecalho por
+pagina); componentes de dominio reutilizaveis para risco/proveniencia
+(`RiskBadge`, `ConfidenceBadge`, `NatureBadge`, `ProvenanceBadge`,
+`UnavailableNote`, `FreshnessIndicator`, `KpiCard`, `RiskScaleLegend`,
+`FilterBar`, `RiskScorePanel`, `RegionHeatGrid`) e estados
+(loading/empty/error); 6 paginas: Visao Geral (KPIs + territorio por Regiao de
+Saude), Radar de Risco (ranking ordenavel/filtravel), Municipios (catalogo),
+detalhe de municipio (`/municipios/[id]`, com componentes do Radar, serie
+temporal e indicadores), Metodologia (IMPLEMENTADO/PROVISORIO/NAO DEFINIDO por
+componente, fiel a `docs/risk-methodology.md`) e Sobre; filtros globais
+(competencia, origem) sincronizados com a URL; grafico de serie temporal em
+SVG proprio (sem dependencia nova). Escala de risco sempre com icone + texto +
+nivel numerico, nunca so cor. Detalhes completos:
+[`docs/fase-4-relatorio.md`](fase-4-relatorio.md).
 
-**Dependencias.** Fase 3. Definicao pendente: origem e simplificacao do GeoJSON.
+**Dependencias.** Fase 3.
 
-**Criterio de conclusao.** Fluxo completo navegavel; projecao e estimativa nunca
-renderizadas com o mesmo tratamento visual de dado observado.
+**Nao entregue nesta rodada** (bloqueio documentado, nao decisao arbitraria):
+
+- **Mapa de calor geografico (Leaflet + GeoJSON) nao foi implementado.** Nao
+  ha GeoJSON oficial dos municipios de SP no repositorio, nem
+  `latitude`/`longitude` populados na base DEMO (campos existem no schema
+  desde a Fase 1, mas o seed nunca os preencheu) - implementar um mapa
+  exigiria inventar coordenadas ou baixar um arquivo externo sem autorizacao
+  explicita. Substituido por um agrupamento por Regiao de Saude (dado real)
+  na Visao Geral, com o bloqueio explicado na propria tela.
+  Ver `docs/known-limitations.md` #9.
+- Sem filtros de sexo/faixa etaria/municipio/regiao no `/api/risk` (a API da
+  Fase 3 nao os expoe - criar filtros decorativos que nao alteram o dado
+  buscado no servidor foi evitado). Filtro de classificacao e regiao existem
+  como filtro client-side sobre a lista ja carregada, onde fazia sentido.
+  Filtro de RiskConfig tambem nao tem seletor na UI: a Fase 3 nao expoe um
+  catalogo de configuracoes disponiveis.
+- KPIs de internacoes/obitos nao aparecem - exigiriam um endpoint agregando
+  fato bruto, que a Fase 3 deliberadamente nao criou (risco de reabrir o
+  problema de supressao em agregacoes combinadas). Os KPIs implementados
+  agregam, no navegador, a lista de `RiskScore` ja materializada pela API
+  (contagem/media/distribuicao de apresentacao - nenhum indice recalculado).
+
+**Criterio de conclusao.** Fluxo completo navegavel; projecao e estimativa
+nunca renderizadas com o mesmo tratamento visual de dado observado. Atingido
+para o escopo entregue - ver `docs/fase-4-relatorio.md` para as validacoes
+executadas.
 
 ---
 

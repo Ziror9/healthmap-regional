@@ -16,19 +16,23 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 3 (API) concluida, parcialmente.** Schema, migrations,
-base DEMO, motor de risco (`packages/risk`) e uma API REST somente-leitura
-(`apps/api`) existem e estao validados. Do indice, so
-`PRESSAO_HOSPITALAR_ESTIMADA` produz valor - os componentes `TENDENCIA` e
-`SEVERIDADE` ficam estruturalmente prontos mas sempre indisponiveis por
-lacunas metodologicas explicitas (nao implementadas, nao inventadas). A API
-expoe catalogo geografico (`/api/municipios`, `/api/regioes`,
-`/api/competencias`), indicadores (`/api/indicadores`) e o Radar
-(`/api/risk`) - publica, sem autenticacao. Ha uma pagina tecnica de
-validacao em `apps/web` (`/radar`), nao o dashboard final (Fase 4). Ver
+**Estado atual: Fase 4 (Dashboard) concluida, parcialmente.** Schema,
+migrations, base DEMO, motor de risco (`packages/risk`), API REST
+somente-leitura (`apps/api`) e um dashboard navegavel (`apps/web`) existem e
+estao validados. Do indice, so `PRESSAO_HOSPITALAR_ESTIMADA` produz valor -
+os componentes `TENDENCIA` e `SEVERIDADE` ficam estruturalmente prontos mas
+sempre indisponiveis por lacunas metodologicas explicitas (nao
+implementadas, nao inventadas). O frontend consome a API (Visao Geral,
+Radar de Risco, Municipios, detalhe de municipio, Metodologia, Sobre) com
+identidade visual propria (tema claro, azul institucional, escala de risco
+nunca so cor) - publico, sem autenticacao, igual a API. **Nao ha mapa
+geografico**: sem GeoJSON oficial nem lat/long populados, a Visao Geral
+mostra esse bloqueio explicitamente e usa agrupamento por Regiao de Saude
+como alternativa. Ver
 [`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md),
-[`docs/fase-2-relatorio.md`](docs/fase-2-relatorio.md) e
-[`docs/fase-3-relatorio.md`](docs/fase-3-relatorio.md).
+[`docs/fase-2-relatorio.md`](docs/fase-2-relatorio.md),
+[`docs/fase-3-relatorio.md`](docs/fase-3-relatorio.md) e
+[`docs/fase-4-relatorio.md`](docs/fase-4-relatorio.md).
 
 ## Objetivo
 

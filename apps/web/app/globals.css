@@ -2,58 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Design tokens - HealthMap Regional (Fase 4).
+ *
+ * Direcao: plataforma enterprise de inteligencia territorial. Fundo claro e
+ * neutro (nunca "mar de azul"); azul institucional reservado a elementos de
+ * identidade e acao primaria; cores semanticas (success/warning/danger/info)
+ * reservadas a SIGNIFICADO, nunca decoracao. As escalas de risco e
+ * proveniencia (badges) usam a paleta padrao do Tailwind diretamente nos
+ * componentes de dominio (components/domain/*) - nao precisam de token
+ * proprio aqui porque sao um numero fixo e pequeno de categorias, sempre
+ * acompanhadas de texto/icone (nunca so cor).
+ */
 @layer base {
   :root {
-    /* Tipografia: pilha do sistema na Fase 0. Ver comentario em app/layout.tsx. */
     --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
       Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
       monospace;
 
-    --background: 210 40% 98%;
-    --foreground: 215 32% 14%;
-    --card: 0 0% 100%;
-    --card-foreground: 215 32% 14%;
-    --primary: 210 74% 26%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 213 27% 92%;
-    --secondary-foreground: 215 32% 14%;
-    --muted: 213 27% 94%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 187 72% 30%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 65% 45%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 22% 86%;
-    --input: 214 22% 86%;
-    --ring: 187 72% 30%;
+    /* Estrutura */
+    --background: 210 24% 97%;
+    --foreground: 217 33% 13%;
+    --surface: 0 0% 100%;
+    --surface-foreground: 217 33% 13%;
+    --surface-muted: 214 24% 95%;
+    --border: 214 20% 87%;
+    --input: 214 20% 87%;
+    --ring: 214 72% 32%;
     --radius: 0.5rem;
-  }
 
-  .dark {
-    --background: 215 38% 9%;
-    --foreground: 210 30% 92%;
-    --card: 215 33% 12%;
-    --card-foreground: 210 30% 92%;
-    --primary: 199 72% 58%;
-    --primary-foreground: 215 38% 9%;
-    --secondary: 215 28% 18%;
-    --secondary-foreground: 210 30% 92%;
-    --muted: 215 28% 16%;
-    --muted-foreground: 214 16% 62%;
-    --accent: 184 62% 46%;
-    --accent-foreground: 215 38% 9%;
-    --destructive: 0 62% 52%;
-    --destructive-foreground: 210 30% 92%;
-    --border: 215 25% 22%;
-    --input: 215 25% 22%;
-    --ring: 184 62% 46%;
+    /* Compatibilidade com os componentes shadcn ja existentes (card = surface). */
+    --card: 0 0% 100%;
+    --card-foreground: 217 33% 13%;
+
+    /* Texto */
+    --muted: 214 20% 95%;
+    --muted-foreground: 217 15% 43%;
+
+    /* Identidade institucional - azul profundo. Uso reservado a acao
+       primaria, navegacao ativa e elementos de marca - nunca preenchimento
+       de area grande. */
+    --primary: 214 72% 30%;
+    --primary-hover: 214 72% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 18% 93%;
+    --secondary-foreground: 217 33% 16%;
+
+    /* Acento teal - usado com parcimonia (destaques pontuais, nunca fundo). */
+    --accent: 189 68% 27%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Semanticas - significado, nao decoracao. */
+    --success: 152 52% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 90% 40%;
+    --warning-foreground: 0 0% 100%;
+    --danger: 0 68% 45%;
+    --danger-foreground: 0 0% 100%;
+    --info: 205 78% 38%;
+    --info-foreground: 0 0% 100%;
+
+    /* Mantido pelo nome historico (usado pelo Badge/componentes shadcn). */
+    --destructive: 0 68% 45%;
+    --destructive-foreground: 0 0% 100%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /*
+   * overflow-x: hidden em html E body (nao so a classe Tailwind no body) -
+   * badges com Tooltip usam um span position:absolute que, mesmo com
+   * opacity:0, ainda conta na scrollable overflow do documento (regra do
+   * CSS, nao um bug do componente). Definir isso so no body nem sempre
+   * suprime o scroll do elemento raiz real (document.scrollingElement pode
+   * ser o <html>, dependendo do motor de renderizacao) - por isso os dois.
+   * Nenhum conteudo visivel e cortado: conteudo largo de verdade (tabelas)
+   * tem seu proprio overflow-x-auto interno.
+   */
+  html,
+  body {
+    overflow-x: hidden;
   }
 
   body {

@@ -7,12 +7,14 @@
 
 - **O projeto nao esta pronto para uso operacional.** Nao deve embasar decisao
   de saude publica no estado atual.
-- Fases 0-3 concluidas (Fase 2 e Fase 3 parciais - ver secoes 5 e 8): existe
-  fundacao tecnica, schema de dominio, migrations, base DEMO deterministica,
-  motor de risco funcional sobre essa base, e uma API REST somente-leitura
-  expondo esses dados. Nao existe produto navegavel (dashboard).
-- **A API (Fase 3) e publica, sem autenticacao nem RBAC efetivo** - ver
-  secao 7. Nao deve ser exposta fora de ambiente de desenvolvimento.
+- Fases 0-4 concluidas (Fase 2, Fase 3 e Fase 4 parciais - ver secoes 5, 8 e
+  9): existe fundacao tecnica, schema de dominio, migrations, base DEMO
+  deterministica, motor de risco funcional sobre essa base, uma API REST
+  somente-leitura expondo esses dados, e um dashboard navegavel consumindo
+  essa API.
+- **A API (Fase 3) e o frontend (Fase 4) sao publicos, sem autenticacao nem
+  RBAC efetivo** - ver secao 7. Nao devem ser expostos fora de ambiente de
+  desenvolvimento.
 - **O Radar de Risco calculado na Fase 2 e parcial, nao os 4 componentes
   previstos.** Ver secao 5 abaixo.
 
@@ -134,7 +136,10 @@
 - Ate 5 anos de historico, **se** os dados estiverem disponiveis e consistentes.
   Caso a disponibilidade real seja menor, sera usado o maior periodo confiavel e
   a limitacao sera registrada aqui.
-- Agregacao por Regiao de Saude prevista, ainda nao implementada.
+- **Agregacao analitica por Regiao de Saude ainda nao implementada na API.**
+  A Visao Geral (Fase 4) agrupa municipios por Regiao de Saude apenas para
+  exibicao (join client-side entre `/api/municipios` e `/api/risk`) - nao
+  existe um endpoint que calcule indicador ou indice agregado por regiao.
 
 ## 7. Plataforma
 
@@ -170,3 +175,42 @@
   Fases 1/2.
 - Paginacao com teto de 200 itens por pagina - nao testada contra volume
   real (a base DEMO atual tem poucas dezenas de linhas por tabela).
+
+## 9. Frontend / Dashboard (Fase 4)
+
+- **Mapa de calor geografico nao implementado.** Nao ha GeoJSON oficial dos
+  municipios de Sao Paulo no repositorio, nem `latitude`/`longitude`
+  populados na base DEMO (`Municipio.latitude`/`longitude` existem no schema
+  desde a Fase 1, mas o seed sempre gravou `null`). Implementar um mapa
+  exigiria inventar coordenadas ou baixar um arquivo geografico externo sem
+  autorizacao explicita do usuario - nenhuma das duas coisas foi feita. A
+  Visao Geral mostra um painel "Mapa geografico indisponivel nesta fase" com
+  a explicacao, e usa agrupamento por Regiao de Saude como alternativa
+  pratica (dado real, sem coordenadas).
+- **Filtros da UI limitados aos que a API suporta.** `/api/risk` (Fase 3) so
+  aceita `competenciaId`/`riskConfigId`/`origem` - por isso a UI so oferece
+  filtro global de competencia e origem (sincronizados com a URL). Filtro de
+  classificacao (Radar) e de regiao/busca (Municipios) sao filtros
+  client-side sobre a lista ja carregada da API, nao nova consulta ao
+  servidor. Nao ha filtro de sexo, faixa etaria ou municipio no Radar porque
+  a API nao os expoe - criar um filtro decorativo que nao muda o dado
+  buscado foi evitado deliberadamente.
+- **Sem seletor de RiskConfig na UI.** A Fase 3 nao expoe um catalogo de
+  configuracoes do Radar disponiveis (`/api/risk-configs` nao existe);
+  construir um seletor exigiria hardcodar IDs de configuracao no frontend,
+  o que este projeto proibe. A API resolve um default documentado
+  (`docs/fase-3-relatorio.md` #7) quando `riskConfigId` nao e informado.
+- **KPIs da Visao Geral sao agregacao de apresentacao, nao um endpoint
+  dedicado.** Contagem, indice medio e distribuicao por classificacao sao
+  calculados no navegador, em cima da lista de `RiskScore` ja retornada por
+  `/api/risk` - nenhum indice, peso ou classificacao e recalculado no
+  frontend. KPIs de volume absoluto (internacoes, obitos) nao aparecem: exigiriam
+  um endpoint agregando fato bruto, que a Fase 3 deliberadamente nao criou.
+- **Sem componente de projecao.** Natureza `PROJECAO` tem tratamento visual
+  definido (`components/domain/*-badge.tsx`, `lib/risk-display.ts`), mas
+  nenhum dado com essa natureza existe ainda (Fase 7 e quem introduz
+  projecao estatistica).
+- Testes automatizados de `apps/web` nao foram criados nesta fase (o
+  projeto nao tinha tooling de teste de frontend antes da Fase 4); a
+  validacao foi feita via `typecheck`, `lint`, `build` de producao e
+  verificacao manual das paginas no navegador - ver `docs/fase-4-relatorio.md`.
