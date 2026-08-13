@@ -1,23 +1,23 @@
 // =============================================================================
 // HealthMap Regional - Prisma schema
 // =============================================================================
-// FASE 0 (fundacao): este schema esta INTENCIONALMENTE VAZIO de entidades.
-// O objetivo aqui e apenas provar a conexao com o PostgreSQL e habilitar
-// `prisma generate` / `prisma migrate dev`.
+// FASE 1 (banco + DEMO): modelo de dominio completo, conforme
+// docs/data-model.md, docs/risk-methodology.md e o spike tecnico validado
+// nesta mesma sessao (multiSchema funciona nativamente no Prisma 6.19 - a
+// preview feature esta deprecated e nao precisa mais ser declarada).
 //
-// O modelo de dominio completo entra na FASE 1, conforme documentado em
-// docs/data-model.md. Resumo do que vira:
+// Escopo desta fase: schema, migrations e seed DEMO. NADA de calculo do
+// Radar (Fase 2), agregacao/API (Fase 3), autenticacao/RBAC funcional
+// (Fase 6) ou ingestao real (Fase 5). As tabelas de risco e RBAC existem
+// aqui apenas como estrutura, inertes.
 //
-//   silver/  Municipio, RegiaoSaude, Competencia, GrupoCid, Estabelecimento
-//   gold/    FatoInternacaoResidencia, FatoInternacaoLocal,
-//            FatoCapacidadeLeitos, Populacao, IndicadorMunicipal,
-//            RiskComponenteValor, RiskScore
-//   meta/    IndicadorDefinicao, RiskConfig, RiskConfigComponente,
-//            FonteDados, IngestaoExecucao, QualidadeCheck, AuditLog,
-//            Usuario, PerfilAtribuicao, EscopoTerritorial
-//
-// A separacao em multiplos schemas PostgreSQL (silver/gold/meta) exige o
-// preview feature `multiSchema` e sera ativada na Fase 1, nao antes.
+// Taxonomias provisorias (decisao explicita, documentada em
+// docs/known-limitations.md, a revisar quando a ingestao REAL existir):
+//   - FaixaEtaria: decenal (FX_00_09 ... FX_80_MAIS). Nao ha confirmacao de
+//     que o SIH/IBGE usam exatamente esse corte - pode ser revisado na
+//     Fase 5.
+//   - TipoLeito: CLINICO/CIRURGICO/UTI/OUTRO. Taxonomia simplificada, nao
+//     validada contra o dicionario de dados real do CNES.
 // =============================================================================
 
 generator client {
@@ -27,4 +27,635 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["silver", "gold", "meta"]
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+// Origem e Natureza replicam os mesmos valores de @healthmap/contracts
+// (packages/contracts/src/enums.ts). Cada lado (TS/SQL) precisa da propria
+// definicao de tipo - isso nao e a duplicacao de DADO que o projeto evita,
+// e duplicacao de CONTRATO DE TIPO entre duas linguagens.
+
+/// De onde vieram os insumos do dado (ADR-001 #11). Usado em todo fato gold.
+enum Origem {
+  REAL
+  DEMO
+
+  @@schema("gold")
+}
+
+/// Como o numero foi produzido. So existe onde pode variar por linha:
+/// RiskComponenteValor e RiskScore. Nos fatos brutos (FatoInternacaoResidencia,
+/// FatoInternacaoLocal, FatoCapacidadeLeitos, Populacao) a natureza e sempre
+/// OBSERVADO por construcao e nao e persistida (decisao de projeto explicita
+/// desta fase). IndicadorMunicipal usa a natureza fixa de IndicadorDefinicao.
+enum Natureza {
+  OBSERVADO
+  ESTIMATIVA
+  PROJECAO
+
+  @@schema("meta")
+}
+
+/// Eixo territorial de um IndicadorDefinicao (residencia x internacao).
+enum EixoTerritorial {
+  RESIDENCIA
+  INTERNACAO
+
+  @@schema("meta")
+}
+
+/// Componentes previstos do Radar de Risco (docs/risk-methodology.md #2).
+/// Espelha packages/risk/src/index.ts (COMPONENTES_PREVISTOS).
+enum ComponenteRisco {
+  PRESSAO_HOSPITALAR_ESTIMADA
+  TENDENCIA
+  SEVERIDADE
+  VULNERABILIDADE
+
+  @@schema("meta")
+}
+
+enum Sexo {
+  MASCULINO
+  FEMININO
+  IGNORADO
+
+  @@schema("gold")
+}
+
+/// Taxonomia decenal - PROVISORIA. Ver cabecalho do arquivo.
+enum FaixaEtaria {
+  FX_00_09
+  FX_10_19
+  FX_20_29
+  FX_30_39
+  FX_40_49
+  FX_50_59
+  FX_60_69
+  FX_70_79
+  FX_80_MAIS
+
+  @@schema("gold")
+}
+
+/// Taxonomia simplificada - PROVISORIA. Ver cabecalho do arquivo.
+enum TipoLeito {
+  CLINICO
+  CIRURGICO
+  UTI
+  OUTRO
+
+  @@schema("gold")
+}
+
+enum ClassificacaoRisco {
+  CRITICO
+  ALTO
+  MEDIO
+  BAIXO
+  MUITO_BAIXO
+
+  @@schema("gold")
+}
+
+enum Confiabilidade {
+  ALTA
+  MEDIA
+  BAIXA
+
+  @@schema("gold")
+}
+
+enum IndicadorDirecao {
+  MAIOR_PIOR
+  MENOR_PIOR
+
+  @@schema("meta")
+}
+
+enum ExecucaoStatus {
+  INICIADA
+  SUCESSO
+  FALHA
+  PARCIAL
+
+  @@schema("meta")
+}
+
+enum SeveridadeCheck {
+  BLOQUEANTE
+  ALERTA
+
+  @@schema("meta")
+}
+
+/// Minimo para satisfazer "entidades de RBAC criadas e inertes" do roadmap.
+/// Desenho completo de RBAC e decisao de Fase 6.
+enum Perfil {
+  ADMIN
+  GESTOR
+  LEITOR
+
+  @@schema("meta")
+}
+
+enum NivelEscopo {
+  ESTADUAL
+  REGIONAL
+  MUNICIPAL
+
+  @@schema("meta")
+}
+
+// -----------------------------------------------------------------------------
+// silver - dimensoes
+// -----------------------------------------------------------------------------
+
+model RegiaoSaude {
+  id        Int      @id @default(autoincrement())
+  codigo    String   @unique
+  nome      String
+  uf        String   @default("SP") @db.Char(2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  municipios          Municipio[]
+  escoposTerritoriais EscopoTerritorial[]
+
+  @@schema("silver")
+}
+
+model Municipio {
+  id            Int      @id @default(autoincrement())
+  /// Chave canonica do dominio.
+  codigoIbge7   String   @unique @db.Char(7)
+  /// Guardado apenas para juncao com o SIH - nunca usado como identidade em outra tabela.
+  codigoIbge6   String   @unique @db.Char(6)
+  nome          String
+  uf            String   @db.Char(2)
+  regiaoSaudeId Int
+  regiaoSaude   RegiaoSaude @relation(fields: [regiaoSaudeId], references: [id])
+  latitude      Decimal? @db.Decimal(9, 6)
+  longitude     Decimal? @db.Decimal(9, 6)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  estabelecimentos          Estabelecimento[]
+  fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
+  populacoes                Populacao[]
+  indicadoresMunicipais     IndicadorMunicipal[]
+  riskComponenteValores     RiskComponenteValor[]
+  riskScores                RiskScore[]
+  escoposTerritoriais       EscopoTerritorial[]
+
+  @@index([regiaoSaudeId])
+  @@schema("silver")
+}
+
+model Competencia {
+  id        Int      @id @default(autoincrement())
+  ano       Int
+  mes       Int
+  /// Primeiro dia do mes.
+  dataRef   DateTime @db.Date
+  /// Insumo direto de leitos-dia.
+  diasNoMes Int
+
+  fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
+  riskComponenteValores     RiskComponenteValor[]
+  riskScores                RiskScore[]
+  ingestaoExecucoes         IngestaoExecucao[]
+
+  @@unique([ano, mes])
+  @@unique([dataRef])
+  @@schema("silver")
+}
+
+model GrupoCid {
+  id              Int      @id @default(autoincrement())
+  codigoCidInicio String
+  codigoCidFim    String
+  nome            String
+  /// Permite corte por topografia (mama, prostata...) no futuro sem migracao
+  /// estrutural das tabelas de fato. No MVP: 1 unica linha, C00-C97.
+  agrupamento     String
+  capitulo        String
+  ativo           Boolean  @default(true)
+
+  fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosInternacaoLocal      FatoInternacaoLocal[]
+
+  @@unique([codigoCidInicio, codigoCidFim, agrupamento])
+  @@schema("silver")
+}
+
+model Estabelecimento {
+  id                    Int      @id @default(autoincrement())
+  codigoCnes            String   @unique
+  nome                  String
+  /// Sempre o municipio de INTERNACAO - um estabelecimento e um lugar fisico,
+  /// nao ha ambiguidade residencia/internacao aqui.
+  municipioId           Int
+  municipio             Municipio @relation(fields: [municipioId], references: [id])
+  tipo                  String
+  habilitacaoOncologica Boolean
+  ativo                 Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([municipioId])
+  @@schema("silver")
+}
+
+// -----------------------------------------------------------------------------
+// gold - fatos e camada de risco materializada
+// -----------------------------------------------------------------------------
+
+model FatoInternacaoResidencia {
+  id Int @id @default(autoincrement())
+
+  /// Eixo RESIDENCIA - onde vivem as pessoas que adoeceram.
+  municipioResidenciaId Int
+  municipioResidencia   Municipio @relation(fields: [municipioResidenciaId], references: [id])
+  competenciaId         Int
+  competencia           Competencia @relation(fields: [competenciaId], references: [id])
+  grupoCidId            Int
+  grupoCid              GrupoCid @relation(fields: [grupoCidId], references: [id])
+  faixaEtaria           FaixaEtaria
+  sexo                  Sexo
+
+  /// NULL quando suprimido = true. Ver docs/known-limitations.md (supressao).
+  internacoes     Int?
+  obitos          Int?
+  diasPermanencia Int?
+  suprimido       Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioResidenciaId, competenciaId, grupoCidId, faixaEtaria, sexo])
+  @@index([competenciaId])
+  @@index([origem])
+  @@index([execucaoId])
+  @@schema("gold")
+}
+
+model FatoInternacaoLocal {
+  id Int @id @default(autoincrement())
+
+  /// Eixo INTERNACAO - onde o sistema hospitalar absorveu a demanda.
+  municipioInternacaoId Int
+  municipioInternacao   Municipio @relation(fields: [municipioInternacaoId], references: [id])
+  competenciaId         Int
+  competencia           Competencia @relation(fields: [competenciaId], references: [id])
+  grupoCidId            Int
+  grupoCid              GrupoCid @relation(fields: [grupoCidId], references: [id])
+  faixaEtaria           FaixaEtaria
+  sexo                  Sexo
+
+  /// NULL quando suprimido = true.
+  internacoes  Int?
+  pacientesDia Int?
+  diariasUti   Int?
+  obitos       Int?
+  suprimido    Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioInternacaoId, competenciaId, grupoCidId, faixaEtaria, sexo])
+  @@index([competenciaId])
+  @@index([origem])
+  @@index([execucaoId])
+  @@schema("gold")
+}
+
+model FatoCapacidadeLeitos {
+  id Int @id @default(autoincrement())
+
+  /// Sempre municipio de INTERNACAO.
+  municipioInternacaoId Int
+  municipioInternacao   Municipio @relation(fields: [municipioInternacaoId], references: [id])
+  competenciaId         Int
+  competencia           Competencia @relation(fields: [competenciaId], references: [id])
+  tipoLeito              TipoLeito
+
+  /// Autodeclarado (CNES). leitosDia = leitosSus * competencia.diasNoMes e
+  /// deliberadamente NAO persistido - calculado em packages/db na leitura,
+  /// para nao duplicar um valor 100% derivavel de outras colunas.
+  leitosSus    Int
+  leitosTotais Int
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioInternacaoId, competenciaId, tipoLeito])
+  @@index([competenciaId])
+  @@schema("gold")
+}
+
+model Populacao {
+  id Int @id @default(autoincrement())
+
+  municipioId Int
+  municipio   Municipio @relation(fields: [municipioId], references: [id])
+  ano         Int
+  faixaEtaria FaixaEtaria
+  sexo        Sexo
+  populacao   Int
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([municipioId, ano, faixaEtaria, sexo])
+  @@schema("gold")
+}
+
+model IndicadorMunicipal {
+  id Int @id @default(autoincrement())
+
+  municipioId          Int
+  municipio            Municipio @relation(fields: [municipioId], references: [id])
+  ano                  Int
+  indicadorDefinicaoId String
+  /// Natureza deste indicador vem de IndicadorDefinicao.naturezaPadrao -
+  /// nao e repetida aqui (evita duplicacao que poderia divergir do valor
+  /// fixado na definicao).
+  indicadorDefinicao   IndicadorDefinicao @relation(fields: [indicadorDefinicaoId], references: [chave])
+
+  valor       Decimal  @db.Decimal(14, 4)
+  denominador Decimal? @db.Decimal(14, 4)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([municipioId, ano, indicadorDefinicaoId])
+  @@schema("gold")
+}
+
+/// Materializado pelo motor da Fase 2 (packages/risk). Nesta fase existe
+/// apenas como estrutura - nenhuma linha calculada. Append-only: recalculo
+/// com riskConfigId novo insere, nunca sobrescreve.
+model RiskComponenteValor {
+  id Int @id @default(autoincrement())
+
+  municipioId   Int
+  municipio     Municipio @relation(fields: [municipioId], references: [id])
+  competenciaId Int
+  competencia   Competencia @relation(fields: [competenciaId], references: [id])
+  riskConfigId  Int
+  riskConfig    RiskConfig @relation(fields: [riskConfigId], references: [id])
+  componente    ComponenteRisco
+
+  valorBruto       Decimal? @db.Decimal(14, 4)
+  valorNormalizado Decimal? @db.Decimal(5, 4)
+  /// Aqui SIM e persistida por linha: pode variar mesmo dentro do mesmo
+  /// componente (ex.: VULNERABILIDADE indisponivel hoje, definida amanha).
+  natureza         Natureza
+  confiabilidade   Confiabilidade
+  disponivel       Boolean @default(true)
+  origem           Origem
+
+  createdAt DateTime @default(now())
+
+  @@unique([municipioId, competenciaId, riskConfigId, componente])
+  @@schema("gold")
+}
+
+/// Materializado pela Fase 2. Estrutura apenas - nenhuma linha calculada
+/// ainda. Append-only pelo mesmo motivo de RiskComponenteValor.
+model RiskScore {
+  id Int @id @default(autoincrement())
+
+  municipioId   Int
+  municipio     Municipio @relation(fields: [municipioId], references: [id])
+  competenciaId Int
+  competencia   Competencia @relation(fields: [competenciaId], references: [id])
+  riskConfigId  Int
+  riskConfig    RiskConfig @relation(fields: [riskConfigId], references: [id])
+
+  indice         Decimal @db.Decimal(5, 4)
+  classificacao  ClassificacaoRisco
+  confiabilidade Confiabilidade
+  natureza       Natureza
+  origem         Origem
+
+  createdAt DateTime @default(now())
+
+  @@unique([municipioId, competenciaId, riskConfigId])
+  @@schema("gold")
+}
+
+// -----------------------------------------------------------------------------
+// meta - configuracao versionada da metodologia e governanca
+// -----------------------------------------------------------------------------
+
+model IndicadorDefinicao {
+  /// Chave legivel e estavel (ex. 'PRESSAO_HOSPITALAR_ESTIMADA') - referenciada
+  /// por packages/risk e pelos seeds. Tabela pequena e curada, PK natural
+  /// compensa (diferente das dimensoes de alto volume, que usam Int surrogate).
+  chave            String  @id
+  nome             String
+  fonte            String
+  unidade          String
+  periodicidade    String
+  direcao          IndicadorDirecao
+  eixoTerritorial  EixoTerritorial
+  naturezaPadrao   Natureza
+  notaMetodologica String?
+  ativo            Boolean @default(true)
+
+  indicadoresMunicipais IndicadorMunicipal[]
+  riskConfigComponentes RiskConfigComponente[]
+
+  @@schema("meta")
+}
+
+/// Versao da metodologia do Radar. "id" e o proprio numero de versao exibido
+/// (nao existe campo "versao" separado - seria duplicar o id). Linhas nunca
+/// sao atualizadas apos uso em calculo: nova config = nova linha.
+model RiskConfig {
+  id                 Int       @id @default(autoincrement())
+  metodoNormalizacao String
+  limiarVolumeMinimo Int
+  vigenciaInicio     DateTime
+  vigenciaFim        DateTime?
+  /// Nenhum peso e oficial ate ser calibrado e validado (risk-methodology.md #6).
+  /// Default false em toda linha nova. No maximo 1 linha com oficial=true -
+  /// garantido por indice unico parcial adicionado manualmente na migration
+  /// (Prisma DSL nao expressa indice parcial).
+  oficial            Boolean   @default(false)
+  autor              String
+  notaVersao         String?
+  createdAt          DateTime  @default(now())
+
+  componentes            RiskConfigComponente[]
+  riskComponenteValores  RiskComponenteValor[]
+  riskScores             RiskScore[]
+
+  @@schema("meta")
+}
+
+model RiskConfigComponente {
+  id                   Int      @id @default(autoincrement())
+  riskConfigId         Int
+  riskConfig           RiskConfig @relation(fields: [riskConfigId], references: [id])
+  componente           ComponenteRisco
+  /// 0-1. CHECK adicionado manualmente na migration.
+  peso                 Decimal  @db.Decimal(5, 4)
+  /// Nullable: permite o componente VULNERABILIDADE existir sem fonte
+  /// definida (risk-methodology.md #2.4).
+  indicadorDefinicaoId String?
+  indicadorDefinicao   IndicadorDefinicao? @relation(fields: [indicadorDefinicaoId], references: [chave])
+  parametros           Json?
+  ativo                Boolean  @default(true)
+
+  @@unique([riskConfigId, componente])
+  @@schema("meta")
+}
+
+model FonteDados {
+  /// Chave legivel (ex. 'SIH_SUS', 'CNES', 'IBGE', 'GERADOR_DEMO').
+  chave                 String  @id
+  nome                  String
+  url                   String?
+  licenca                String?
+  periodicidade          String
+  defasagemEsperadaDias  Int?
+  ativo                  Boolean @default(true)
+
+  execucoes IngestaoExecucao[]
+
+  @@schema("meta")
+}
+
+/// Alvo de execucaoId de todo fato gold - garante que "nenhuma linha de
+/// fato" fica sem linhagem, REAL ou DEMO. DEMO e modelado como so mais uma
+/// fonte (fonteDadosId = 'GERADOR_DEMO'), nao como mecanismo paralelo.
+model IngestaoExecucao {
+  id                String   @id @default(cuid())
+  fonteDadosId      String
+  fonteDados        FonteDados @relation(fields: [fonteDadosId], references: [chave])
+  /// Nullable: cargas de referencia (ex. municipios) nao sao por competencia.
+  competenciaId     Int?
+  competencia       Competencia? @relation(fields: [competenciaId], references: [id])
+  status            ExecucaoStatus
+  hashInsumos       String?
+  versaoPipeline    String
+  linhasProcessadas Int?
+  linhasRejeitadas  Int?
+  iniciadoEm        DateTime
+  finalizadoEm      DateTime?
+  mensagemErro      String?
+  createdAt         DateTime @default(now())
+
+  fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
+  populacoes                Populacao[]
+  indicadoresMunicipais     IndicadorMunicipal[]
+  qualidadeChecks           QualidadeCheck[]
+
+  @@index([fonteDadosId, competenciaId])
+  @@index([status])
+  @@schema("meta")
+}
+
+model QualidadeCheck {
+  id                 String   @id @default(cuid())
+  ingestaoExecucaoId String
+  ingestaoExecucao   IngestaoExecucao @relation(fields: [ingestaoExecucaoId], references: [id])
+  regra              String
+  severidade         SeveridadeCheck
+  passou             Boolean
+  linhasAfetadas     Int?
+  detalhe            String?
+  createdAt          DateTime @default(now())
+
+  @@index([ingestaoExecucaoId])
+  @@schema("meta")
+}
+
+/// Criada nesta fase, NAO usada ainda - nenhum middleware da API escreve
+/// aqui. Trilha de auditoria de consulta/exportacao e entrega da Fase 6.
+model AuditLog {
+  id               String   @id @default(cuid())
+  usuarioId        String?
+  usuario          Usuario? @relation(fields: [usuarioId], references: [id])
+  acao             String
+  recurso          String
+  filtrosAplicados Json?
+  ip               String?
+  userAgent        String?
+  criadoEm         DateTime @default(now())
+
+  @@index([usuarioId, criadoEm])
+  @@index([acao])
+  @@schema("meta")
+}
+
+/// RBAC inerte ate a Fase 6 (roadmap.md). Estrutura minima apenas.
+model Usuario {
+  id       String   @id @default(cuid())
+  email    String   @unique
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  perfis    PerfilAtribuicao[]
+  auditLogs AuditLog[]
+
+  @@schema("meta")
+}
+
+model PerfilAtribuicao {
+  id        String   @id @default(cuid())
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  perfil    Perfil
+  criadoEm  DateTime @default(now())
+
+  escopos EscopoTerritorial[]
+
+  @@unique([usuarioId, perfil])
+  @@schema("meta")
+}
+
+model EscopoTerritorial {
+  id                 String   @id @default(cuid())
+  perfilAtribuicaoId String
+  perfilAtribuicao   PerfilAtribuicao @relation(fields: [perfilAtribuicaoId], references: [id])
+  nivel              NivelEscopo
+  municipioId        Int?
+  municipio          Municipio? @relation(fields: [municipioId], references: [id])
+  regiaoSaudeId      Int?
+  regiaoSaude        RegiaoSaude? @relation(fields: [regiaoSaudeId], references: [id])
+
+  @@index([perfilAtribuicaoId])
+  @@schema("meta")
 }

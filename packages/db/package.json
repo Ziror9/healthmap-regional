@@ -14,15 +14,20 @@
     "migrate": "prisma migrate dev",
     "studio": "prisma studio",
     "check": "tsx src/scripts/check-connection.ts",
+    "seed": "tsx src/scripts/seed-demo.ts",
+    "calculate-risk": "tsx src/scripts/calculate-risk-demo.ts",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@healthmap/risk": "*",
     "@prisma/client": "^6.2.0"
   },
   "devDependencies": {
     "dotenv": "^16.4.7",
     "prisma": "^6.2.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.4"
   }
 }

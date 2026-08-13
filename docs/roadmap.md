@@ -23,41 +23,76 @@ ESLint executa, build do frontend funciona, nenhum segredo versionado.
 
 ---
 
-## Fase 1 - Banco + DEMO
+## Fase 1 - Banco + DEMO `CONCLUIDA`
 
 **Objetivo.** Materializar o modelo de dominio e uma base DEMO claramente
 identificada.
 
 **Entregas.** Schema Prisma completo (dimensoes, fatos por eixo territorial,
-camada de risco, governanca); migrations; schemas `silver`/`gold`/`meta`;
-repositorios; referencia geografica real (645 municipios de SP e regioes de
-saude); gerador DEMO deterministico de ate 5 anos de competencias; entidades de
-RBAC criadas e inertes.
+camada de risco estrutural, governanca) nos schemas `silver`/`gold`/`meta`;
+migration aplicada com CHECK constraints e indice unico parcial customizados;
+gerador DEMO deterministico (`npm run db:seed`) cobrindo 15 municipios
+ilustrativos de SP, 6 competencias, populacao, internacoes por residencia e
+por local, capacidade de leitos, com supressao n<5 aplicada; entidades de
+RBAC criadas e inertes. Detalhes completos em
+[`docs/fase-1-relatorio.md`](fase-1-relatorio.md).
 
-**Dependencias.** Fase 0. Definicoes pendentes: agrupamento de CID dentro de
-C00-C97; limiar de supressao de celulas.
+**Dependencias.** Fase 0.
+
+**Definicoes resolvidas nesta fase:**
+- agrupamento de CID dentro de C00-C97: uma unica linha no MVP
+  (`TODAS_NEOPLASIAS_MALIGNAS`), campo `agrupamento` pronto para subdivisao
+  futura por topografia;
+- limiar de supressao de celulas: `n < 5`, tratado como parametro do gerador/
+  ETL (nao embutido em codigo sem documentacao), sujeito a revisao
+  metodologica/juridica - ver `docs/known-limitations.md`.
+
+**Definicoes ainda pendentes (nao bloqueiam a Fase 1, ver known-limitations.md):**
+- granularidade real de `FaixaEtaria` (decenal usado como taxonomia inicial)
+  e de `TipoLeito` (taxonomia simplificada) contra o padrao real do SIH/CNES;
+- base geografica completa e oficial (645 municipios de SP) - a Fase 1 usa um
+  subconjunto pequeno com codigos IBGE sinteticos, nao a carga oficial
+  completa (ver known-limitations.md).
 
 **Criterio de conclusao.** Banco populado e consultavel, com `origem` e
 linhagem em toda linha de fato; nenhuma entidade capaz de armazenar dado
-individual de paciente.
+individual de paciente. Atingido - ver `docs/fase-1-relatorio.md` para as
+validacoes executadas.
 
 ---
 
-## Fase 2 - Radar de Risco
+## Fase 2 - Radar de Risco `CONCLUIDA (parcial - ver limitacoes)`
 
 **Objetivo.** Implementar o motor unico do indice.
 
 **Entregas.** `packages/risk` com normalizacao por percentil, composicao
-ponderada, classificacao, confiabilidade por volume e tratamento de componente
-ausente; `RiskConfig` v0.1 semeada como **nao oficial**; materializacao de
-`RiskComponenteValor` e `RiskScore`; testes unitarios incluindo casos-limite;
-`docs/risk-methodology.md` atualizado com a formula efetiva.
+ponderada com renormalizacao de componente ausente, classificacao por
+quintil (provisoria), confiabilidade por volume; duas `RiskConfig` DEMO
+semeadas como **nao oficiais** (pesos iguais, `limiarVolumeMinimo`
+diferente); materializacao de `RiskComponenteValor` e `RiskScore` sobre a
+base DEMO da Fase 1; 43 testes unitarios (packages/risk) + 16 testes de
+integracao (packages/db) incluindo casos-limite; `docs/risk-methodology.md`
+atualizado marcando o que foi implementado e o que continua em aberto.
+Detalhes: [`docs/fase-2-relatorio.md`](fase-2-relatorio.md).
 
-**Dependencias.** Fase 1. Definicoes pendentes: faixas de classificacao; limiar
-de volume minimo para confiabilidade alta.
+**Dependencias.** Fase 1.
+
+**Definicoes que continuam pendentes** (o motor funciona sem elas, mas 2 dos
+4 componentes ficam estruturalmente prontos e sempre indisponiveis por
+causa delas - ver `docs/known-limitations.md`):
+- janela movel e tratamento de sazonalidade de TENDENCIA;
+- formula/pesos de composicao dos 3 sub-indicadores de SEVERIDADE;
+- confirmacao do metodo de classificacao (quintis relativos, implementado
+  como provisorio, vs. cortes absolutos fixos);
+- segundo limiar de confiabilidade para distinguir ALTA de MEDIA;
+- fonte do indicador de VULNERABILIDADE (sem mudanca desde a Fase 0/1).
 
 **Criterio de conclusao.** Indice reproduzivel, versionado e auditavel sobre a
 base DEMO; recalculo com pesos novos cria linhas novas, nunca sobrescreve.
+Atingido para o(s) componente(s) metodologicamente completos
+(PRESSAO_HOSPITALAR_ESTIMADA) - determinismo e idempotencia comprovados por
+teste automatizado. Os demais componentes nao violam o criterio: ficam
+honestamente indisponiveis em vez de produzir um numero inventado.
 
 ---
 

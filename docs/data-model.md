@@ -1,8 +1,11 @@
 # Modelo de dados (conceitual) - HealthMap Regional
 
-> Estado: Fase 0. Nenhuma entidade implementada. Este documento descreve o
-> modelo que sera criado na Fase 1, para que a implementacao seja verificavel
-> contra uma especificacao previa.
+> Estado: Fase 1 concluida. Todas as entidades abaixo estao implementadas em
+> `packages/db/prisma/schema.prisma` e migradas para o PostgreSQL local
+> (schemas `silver`/`gold`/`meta`). Este documento permanece como a
+> especificacao conceitual; divergencias pontuais entre este texto e o schema
+> efetivo estao anotadas inline. Detalhes de implementacao, testes e decisoes
+> tomadas: [`docs/fase-1-relatorio.md`](fase-1-relatorio.md).
 
 ## 1. Principio estruturante: residencia x internacao
 
@@ -39,6 +42,24 @@ Outros enums: `Sexo`, `FaixaEtaria`, `TipoLeito`, `ClassificacaoRisco`
 (CRITICO, ALTO, MEDIO, BAIXO, MUITO_BAIXO), `Confiabilidade` (ALTA, MEDIA,
 BAIXA), `ComponenteRisco`, `Perfil`.
 
+**Implementado na Fase 1 - `FaixaEtaria` (decenal, PROVISORIA):** `FX_00_09`,
+`FX_10_19`, `FX_20_29`, `FX_30_39`, `FX_40_49`, `FX_50_59`, `FX_60_69`,
+`FX_70_79`, `FX_80_MAIS`. Nao ha confirmacao de que o SIH/IBGE usam
+exatamente este corte - revisar quando a ingestao REAL (Fase 5) definir a
+granularidade real. Ver `docs/known-limitations.md`.
+
+**Implementado na Fase 1 - `TipoLeito` (simplificada, PROVISORIA):**
+`CLINICO`, `CIRURGICO`, `UTI`, `OUTRO`. Taxonomia nao validada contra o
+dicionario de dados real do CNES.
+
+**Decisao final sobre `Natureza` nos fatos brutos:** `FatoInternacaoResidencia`,
+`FatoInternacaoLocal`, `FatoCapacidadeLeitos` e `Populacao` **nao** tem coluna
+`natureza` - e sempre `OBSERVADO` por construcao e nao e persistida.
+`IndicadorMunicipal` usa a natureza fixa de `IndicadorDefinicao.naturezaPadrao`.
+Apenas `RiskComponenteValor` e `RiskScore` persistem `natureza` por linha,
+porque so ali ela pode variar (ex.: `VULNERABILIDADE` indisponivel hoje,
+definida amanha).
+
 ## 3. Dimensoes (`silver`)
 
 | Entidade         | Campos-chave                                                                              | Notas                                                          |
@@ -48,6 +69,12 @@ BAIXA), `ComponenteRisco`, `Perfil`.
 | `Competencia`    | ano, mes, dataRef, diasNoMes                                                                | `diasNoMes` e insumo direto de leitos-dia                      |
 | `GrupoCid`       | codigo, descricao, agrupamento, capitulo                                                    | Recorte C00-C97; `agrupamento` permite corte por topografia    |
 | `Estabelecimento`| codigoCnes, nome, municipioId, tipo, habilitacaoOncologica                                  | O municipio aqui e sempre o de **internacao**                  |
+
+**Nota sobre a carga geografica da Fase 1:** o seed DEMO carrega apenas 15
+municipios ilustrativos de SP (nomes reais) com **codigos IBGE sinteticos**
+(sequenciais, deliberadamente nao-realistas) e 5 agrupamentos de regiao de
+saude tambem ilustrativos - nao a base oficial completa de 645 municipios
+prevista neste documento. Ver `docs/known-limitations.md`.
 
 ## 4. Fatos - eixo residencia (`gold`)
 
@@ -60,6 +87,15 @@ Medidas: internacoes, obitos, diasPermanencia, suprimido, execucaoId, origem.
 **`IndicadorMunicipal`** - municipio x ano x indicadorDefinicaoId -> valor,
 denominador, origem. Entidade generica: e ela que permite definir o indicador de
 vulnerabilidade social depois, sem alterar a arquitetura.
+
+> **Atencao ao grao (aprendido na Fase 2):** o grao e ANUAL, nao mensal. Um
+> indicador derivado de fatos mensais (como a taxa de internacao por 10k
+> habitantes, calculada a partir de `FatoInternacaoResidencia`) precisa ser
+> agregado para o ano ANTES de gravar aqui - gravar um valor por competencia
+> direto nesta tabela sobrescreve silenciosamente o mes anterior via upsert
+> (a chave unica e municipio+ano+indicador, sem competencia). Ver
+> `packages/db/src/repositories/risk.ts` (`getAgregadoInternacaoResidenciaAnual`)
+> para o padrao correto.
 
 ## 5. Fatos - eixo internacao (`gold`)
 
@@ -95,6 +131,35 @@ Duas decisoes de modelagem que carregam intencao:
 
 Fases posteriores acrescentam `Projecao` (Fase 7) e `Alerta` (Fase 6).
 
+**Estado apos a Fase 2:** `RiskComponenteValor` e `RiskScore` estao
+populadas pelo motor (`packages/risk`, orquestrado por
+`packages/db/src/scripts/calculate-risk-demo.ts`). Nem todos os 4
+componentes calculam valor - TENDENCIA e SEVERIDADE ficam estruturalmente
+prontos mas sempre `disponivel = false` (lacunas metodologicas documentadas
+em `docs/risk-methodology.md` #2.2 e #2.3, nao implementadas por decisao
+explicita de nao inventar formula). Detalhes completos:
+`docs/fase-2-relatorio.md`.
+
+**`RiskConfig` - historico da Fase 1 e Fase 2.** A linha da Fase 1
+(`autor='seed-fase1'`, sem componentes, `metodoNormalizacao =
+'NAO_DEFINIDO_FASE2'`) permanece intocada, como registro historico de que a
+tabela existia antes de haver metodo. A Fase 2 semeou **duas novas linhas**
+(`autor='seed-fase2-a'` e `'seed-fase2-b'`), cada uma com os 4 componentes
+em `RiskConfigComponente` com peso **igual** (0.25 - nao ha valor
+demonstrativo documentado para reutilizar, peso igual e a unica distribuicao
+que nao expressa julgamento de importancia relativa), variando so
+`limiarVolumeMinimo` entre as duas (30 e 100), para demonstrar que
+recalcular com config diferente cria historico novo (append-only) sem
+apagar o anterior. Nenhuma das tres e `oficial`. `id` de `RiskConfig`
+funciona como o proprio numero de versao (nao existe campo `versao`
+separado, para nao duplicar o `id`).
+
+**Constraint adicional implementada:** no maximo uma linha de `RiskConfig`
+pode ter `oficial = true` simultaneamente - garantido por um indice unico
+parcial (`CREATE UNIQUE INDEX ... WHERE oficial = true`), adicionado
+manualmente na migration porque o DSL do Prisma nao expressa indices
+parciais.
+
 ## 7. Governanca e plataforma (`meta`)
 
 | Entidade                                    | Papel                                                                    |
@@ -112,7 +177,12 @@ medidas nulas. A regra e aplicada no ETL (na agregacao) **e reaplicada na API**
 sobre combinacoes de filtros: a intersecao de filtros permissivos pode
 reconstituir uma celula pequena que, isolada, estava acima do limiar.
 
-Limiar configuravel. Valor proposto: n < 5 (a confirmar na Fase 1).
+Limiar adotado na Fase 1: `n < 5`, tratado como parametro do gerador
+DEMO/ETL e documentado como sujeito a revisao metodologica/juridica futura
+(nao embutido em `RiskConfig` - supressao de fatos brutos e independente do
+ciclo de vida do Radar). A reaplicacao da supressao sobre combinacoes de
+filtro na API **nao foi implementada** - isso e explicitamente escopo da
+Fase 3. Ver `docs/known-limitations.md`.
 
 ## 9. O que o modelo nao tem, por decisao
 

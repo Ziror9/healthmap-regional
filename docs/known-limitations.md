@@ -7,15 +7,42 @@
 
 - **O projeto nao esta pronto para uso operacional.** Nao deve embasar decisao
   de saude publica no estado atual.
-- Fase 0 concluida: existe fundacao tecnica, nao existe produto.
-- Nao ha dashboard, indicadores, Radar de Risco calculado nem dados carregados.
+- Fases 0, 1 e 2 concluidas: existe fundacao tecnica, schema de dominio,
+  migrations, base DEMO deterministica e um motor de risco funcional sobre
+  essa base. Nao existe produto navegavel.
+- Nao ha dashboard nem API analitica publica - comecam na Fase 3/4.
+- **O Radar de Risco calculado na Fase 2 e parcial, nao os 4 componentes
+  previstos.** Ver secao 5 abaixo.
 
 ## 2. Dados
 
 - **Dados DEMO nao sao dados oficiais.** A base DEMO (Fase 1) e sintetica,
-  gerada para desenvolvimento e demonstracao. A geografia sera real; os numeros,
-  nao. Nenhum valor DEMO pode ser lido como informacao sobre a situacao real de
-  qualquer municipio.
+  gerada por um script deterministico (`packages/db/src/scripts/seed-demo.ts`)
+  para desenvolvimento e validacao do schema. Nenhum valor DEMO pode ser lido
+  como informacao sobre a situacao real de qualquer municipio.
+- **A geografia da Fase 1 tambem NAO e oficial.** O seed carrega apenas 15
+  municipios ilustrativos de SP (nomes reais, de conhecimento publico) e 5
+  agrupamentos de regiao de saude tambem ilustrativos. Os **codigos IBGE sao
+  sinteticos** (sequencia obviamente nao-realista, ex. `3500010`) - foram
+  gerados assim de proposito, para nao correr o risco de apresentar um
+  codigo inventado como se fosse a tabela oficial do IBGE (o que violaria a
+  regra deste projeto de nunca inventar dado apresentado como fonte oficial).
+  A carga completa e oficial dos 645 municipios de SP com codigos IBGE reais
+  fica pendente para quando houver uma fonte oficial machine-readable a
+  ingerir (Fase 5 ou uma tarefa dedicada antes dela) - nao deve ser digitada
+  de memoria.
+- **Taxonomias provisorias, nao validadas contra a fonte real:**
+  - `FaixaEtaria` usa corte decenal (`FX_00_09` ... `FX_80_MAIS`). Nenhum
+    documento do projeto confirma que o SIH/IBGE usam exatamente esse corte;
+    a granularidade real (decenal, quinquenal, ou outra) precisa ser
+    confirmada antes da ingestao REAL (Fase 5), pois mudar a taxonomia depois
+    de ha dados reais carregados exige migracao.
+  - `TipoLeito` usa uma taxonomia simplificada (`CLINICO`, `CIRURGICO`, `UTI`,
+    `OUTRO`), nao validada contra o dicionario de dados do CNES. Tambem em
+    aberto se o recorte certo para a formula de Pressao Hospitalar Estimada e
+    "tipo de leito" ou "habilitacao oncologica do estabelecimento" (ja
+    modelada em `Estabelecimento.habilitacaoOncologica`) - ver
+    `docs/risk-methodology.md`.
 - **Integracao com o SIH/SUS ainda nao implementada.**
 - **Integracao com o CNES ainda nao implementada.**
 - **Integracao com o IBGE ainda nao implementada.**
@@ -48,14 +75,51 @@
 
 ## 5. Radar de Risco
 
-- **Ainda nao possui metodologia formal.** Conceito documentado, formula nao
-  definida nem implementada.
-- Os pesos iniciais serao arbitrarios e marcados como nao oficiais ate haver
-  calibracao e validacao.
-- **A fonte do componente de vulnerabilidade ainda nao foi definida.** Ate la o
-  indice sera calculado com os componentes disponiveis, e a ausencia sera
-  declarada.
+- **Calculado desde a Fase 2, mas parcial: so 1 dos 4 componentes produz
+  valor.** `PRESSAO_HOSPITALAR_ESTIMADA` esta implementada exatamente
+  conforme a formula documentada. `TENDENCIA` e `SEVERIDADE` ficam
+  estruturalmente prontas mas **sempre indisponiveis** - a metodologia
+  nunca definiu a janela movel/sazonalidade de TENDENCIA nem os
+  pesos/formula de composicao dos 3 sub-indicadores de SEVERIDADE, e
+  inventar esses valores foi explicitamente proibido. `VULNERABILIDADE`
+  permanece indisponivel como sempre foi previsto (fonte nao definida).
+  Detalhes: `docs/fase-2-relatorio.md`.
+- **Os pesos usados na Fase 2 sao iguais (0.25 por componente) e
+  explicitamente DEMO/nao-oficiais.** Nao ha valor demonstrativo
+  documentado no repositorio para reutilizar; peso igual foi escolhido por
+  ser a unica distribuicao que nao expressa julgamento de importancia
+  relativa entre componentes. `oficial = false` em toda `RiskConfig`
+  existente. O banco garante estruturalmente no maximo uma `RiskConfig`
+  oficial por vez (indice unico parcial).
+- **A classificacao em faixas (CRITICO..MUITO_BAIXO) usa quintis relativos
+  da coorte como metodo PROVISORIO, nao confirmado.**
+  `docs/risk-methodology.md` sempre deixou em aberto a escolha entre quintis
+  e cortes absolutos fixos ("decisao necessaria antes da Fase 2") - a
+  decisao nunca foi tomada por quem define a metodologia. Quintis foi
+  implementado por ser a opcao que nao exige inventar numeros de corte, mas
+  precisa de confirmacao formal antes de qualquer uso alem de
+  desenvolvimento/demonstracao.
+- **Confiabilidade so distingue ALTA/BAIXA, nunca MEDIA.** A metodologia
+  define apenas o corte de BAIXA (abaixo de `limiarVolumeMinimo`); nao ha
+  segundo limiar documentado para separar ALTA de MEDIA.
 - O indice e analitico e experimental. Nao e diagnostico clinico.
+
+## 5.1 Supressao de celulas pequenas
+
+- Limiar adotado: `n < 5`. Aplicado no seed DEMO (e sera aplicado no ETL real
+  na Fase 5) na granularidade minima do fato (`suprimido = true`, medidas
+  numericas = `NULL`), reforcado por CHECK constraint no banco.
+- **Nao implementado ainda:** reaplicacao da regra sobre agregacoes e
+  combinacoes de filtro na API. Uma soma ingenua de celulas suprimidas e
+  nao-suprimidas pode, via `SUM()` em SQL (que ignora `NULL` silenciosamente),
+  subestimar um total sem sinalizar que ele esta incompleto. Isso e escopo
+  explicito da Fase 3 e precisa ser resolvido antes de qualquer endpoint
+  agregado ir ao ar.
+- O valor `5` nao esta embutido em codigo sem documentacao, mas tambem nao
+  esta versionado em banco junto da metodologia do Radar (decisao explicita
+  desta fase, para nao acoplar supressao de fatos brutos ao ciclo de vida do
+  `RiskConfig`, que so nasce - mesmo estruturalmente - na Fase 1/2). E um
+  parametro sujeito a revisao metodologica e juridica futura.
 
 ## 6. Escopo
 

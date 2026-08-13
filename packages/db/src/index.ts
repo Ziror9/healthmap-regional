@@ -9,8 +9,10 @@
  * reescrever a aplicacao.
  *
  * Fase 0: apenas o cliente e a verificacao de conexao.
- * Fase 1: entram os repositorios por agregado.
+ * Fase 1: schema de dominio.
+ * Fase 2: repositorio de leitura/escrita para o motor de risco.
  */
 export { getPrismaClient, disconnectPrisma } from './client.js';
 export { checkDatabaseConnection } from './connection.js';
 export type { DatabaseConnectionResult } from './connection.js';
+export * from './repositories/risk.js';
