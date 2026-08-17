@@ -208,21 +208,74 @@ executadas.
 
 ---
 
-## Fase 5 - Dados reais
+## Fase 5 - Dados reais `CONCLUIDA (parcial - ver limitacoes)`
 
-**Objetivo.** Substituir gradualmente DEMO por REAL.
+**Objetivo.** Substituir gradualmente DEMO por REAL, sem inventar dado,
+fonte ou metodologia.
 
-**Entregas.** `etl/` com ingestao via pySUS (SIH/SP), CNES e IBGE; validacao de
-qualidade bloqueante e nao bloqueante; bifurcacao residencia/internacao;
-supressao de celulas; carga; registro de linhagem; reprocessamento das ultimas
-competencias; definicao do indicador de vulnerabilidade e ativacao do quarto
-componente do Radar.
+**Entregas.** `etl/` (pacote Python `healthmap_etl`, escreve direto no
+Postgres via SQL - ADR-001) com dois pipelines REAL:
 
-**Dependencias.** Fases 1 a 4. Definicao pendente: fonte e indicador de
-vulnerabilidade social.
+- `ingest_geografia.py`: 645 municipios oficiais de SP (API IBGE
+  `localidades`) + 17 Departamentos Regionais de Saude (SES-SP, referencia
+  local versionada) + GeoJSON oficial da malha territorial (API IBGE
+  `malhas`), publicado como asset estatico do frontend
+  (`apps/web/public/geo/sp-municipios.geojson`);
+- `ingest_cnes.py`: capacidade de leitos SUS/total (`UTI`/`OUTRO`) para
+  todos os municipios de SP com hospital cadastrado (via API DEMAS), e uma
+  amostra limitada de estabelecimentos;
+- linhagem completa (`FonteDados`/`IngestaoExecucao`/`QualidadeCheck`, ja
+  existente desde a Fase 1) para toda carga REAL; checks de qualidade
+  bloqueante/alerta; upsert idempotente por chave natural;
+- mapa geografico real no frontend (SVG proprio, sem Leaflet), substituindo
+  o bloqueio da Fase 4;
+- `ingest_sih.py` (segunda rodada): internacoes oncologicas REAL do
+  SIH/SUS (DATASUS, grupo RD) via pySUS, rodando num container Linux
+  dedicado (`etl/docker/Dockerfile.sih`) que contorna o bloqueio de
+  compilacao nativa do Windows sem alterar o ambiente principal nem o
+  `docker-compose.yml` do projeto. POC controlado: SP, competencia
+  2024-02 (unica disponivel no periodo solicitado, 2024-01/03 ausentes no
+  catalogo espelhado - reportado, nao inventado). Grava
+  `FatoInternacaoResidencia`/`FatoInternacaoLocal` REAL com supressao n<5
+  aplicada e proveniencia completa;
+- 68 testes de integracao (`packages/db/src/__tests__/fase5.test.ts`,
+  geografia+CNES+SIH) + 74 testes unitarios Python (`etl/tests/`) +
+  correcao de testes pre-existentes que assumiam ausencia de dado REAL na
+  mesma base.
 
-**Criterio de conclusao.** Primeira competencia REAL carregada e visivel, com
-defasagem declarada na interface e convivendo com DEMO sem mistura silenciosa.
+Detalhes completos: [`docs/fase-5-relatorio.md`](fase-5-relatorio.md) e
+[`docs/sih-methodology.md`](sih-methodology.md).
+
+**Dependencias.** Fases 1 a 4.
+
+**Nao entregue nesta rodada** (bloqueio real documentado ou decisao
+metodologica explicita, nao decisao arbitraria - ver
+`docs/known-limitations.md` #10):
+
+- **Pressao Hospitalar Estimada REAL continua indisponivel** mesmo com SIH
+  ingerido - as duas fontes REAL de que o componente precisa (SIH,
+  competencia 2024-02; CNES, snapshot preso a outra competencia) nao
+  compartilham nenhuma competencia em comum, uma incompatibilidade
+  temporal real, nao uma limitacao de codigo (`docs/sih-methodology.md` §9).
+- **SIH cobre so 1 competencia** (POC) - o catalogo espelhado pelo pySUS
+  para SP/RD nao e continuo (152/~408 meses possiveis entre 1992-2026);
+  ampliar a cobertura e so rodar `etl/ingest_sih.py` de novo com mais
+  competencias, uma por uma, conforme forem existindo no catalogo.
+- **Populacao (IBGE, Censo 2022) investigada, fonte identificada, nao
+  implementada** por tempo - taxa de internacao por 10k habitantes REAL
+  depende dela, mesmo com `FatoInternacaoResidencia` REAL agora existindo.
+- **CNES `estabelecimentos` ingerido como amostra**, nao cobertura completa
+  de SP (limite real da API: 20 registros/pagina).
+- Indicador de vulnerabilidade social e ativacao do quarto componente do
+  Radar seguem sem fonte definida (nao mudou desde a Fase 0/1).
+
+**Criterio de conclusao.** Primeira competencia REAL carregada e visivel,
+convivendo com DEMO sem mistura silenciosa. Atingido para geografia,
+capacidade de leitos e internacoes oncologicas (visiveis no mapa, no
+catalogo de municipios e na base, com proveniencia REAL correta em toda
+linha) - o Radar de Risco em si (indice calculado) continua sem nenhuma
+competencia REAL, por uma incompatibilidade temporal entre fontes REAL
+documentada acima, nao por ausencia de dado.
 
 ---
 

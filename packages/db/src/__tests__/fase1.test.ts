@@ -78,11 +78,14 @@ describe('Fase 1 - seed DEMO', () => {
   it('4. seed DEMO e deterministico (contagens fixas para a configuracao atual)', async () => {
     // Valores observados e estaveis para MUNICIPIOS/COMPETENCIAS/SEED_DETERMINISTICO
     // atuais em seed-demo.ts. Se a seed source mudar deliberadamente, estes
-    // numeros devem ser atualizados junto.
-    const residencia = await prisma.fatoInternacaoResidencia.count();
-    const local = await prisma.fatoInternacaoLocal.count();
-    const leitos = await prisma.fatoCapacidadeLeitos.count();
-    const populacao = await prisma.populacao.count();
+    // numeros devem ser atualizados junto. Filtra origem=DEMO explicitamente
+    // desde a Fase 5: a mesma tabela agora tambem tem fatos REAL (ingestao
+    // CNES), que nao devem contar aqui - ver fase5.test.ts para as
+    // contagens REAL.
+    const residencia = await prisma.fatoInternacaoResidencia.count({ where: { origem: 'DEMO' } });
+    const local = await prisma.fatoInternacaoLocal.count({ where: { origem: 'DEMO' } });
+    const leitos = await prisma.fatoCapacidadeLeitos.count({ where: { origem: 'DEMO' } });
+    const populacao = await prisma.populacao.count({ where: { origem: 'DEMO' } });
 
     expect(residencia).toBe(1620);
     expect(local).toBe(1620);
@@ -106,18 +109,30 @@ describe('Fase 1 - seed DEMO', () => {
   });
 
   it('6. origem DEMO esta corretamente registrada em todo fato', async () => {
-    const naoDemo = await prisma.fatoInternacaoResidencia.count({
-      where: { NOT: { origem: 'DEMO' } },
+    // Desde a segunda rodada da Fase 5, FatoInternacaoResidencia tambem tem
+    // linhas REAL (ingestao SIH/SUS - ver docs/sih-methodology.md) - o que
+    // continua valido nao e "a tabela e so DEMO", e sim "todo registro
+    // DEMO tem origem='DEMO' corretamente marcada" (o inverso, verificado
+    // abaixo). fase5.test.ts cobre a contraparte REAL explicitamente.
+    const origensInvalidas = await prisma.fatoInternacaoResidencia.count({
+      where: { NOT: { origem: { in: ['DEMO', 'REAL'] } } },
     });
-    expect(naoDemo).toBe(0);
+    expect(origensInvalidas).toBe(0);
 
     const fonte = await prisma.fonteDados.findUnique({ where: { chave: 'GERADOR_DEMO' } });
     expect(fonte).not.toBeNull();
 
-    const execucoesDeOutraFonte = await prisma.ingestaoExecucao.count({
-      where: { NOT: { fonteDadosId: 'GERADOR_DEMO' } },
+    // Desde a Fase 5 outras fontes REAL (IBGE, CNES) tambem tem
+    // IngestaoExecucao legitimas - o que continua valendo e que TODA
+    // execucao ligada a um fato DEMO aponta para GERADOR_DEMO, nao que
+    // GERADOR_DEMO seja a unica fonte que já rodou no banco.
+    const execucoesDeFatosDemo = await prisma.fatoInternacaoResidencia.findMany({
+      where: { origem: 'DEMO' },
+      select: { execucao: { select: { fonteDadosId: true } } },
+      distinct: ['execucaoId'],
     });
-    expect(execucoesDeOutraFonte).toBe(0);
+    const fontesDosFatosDemo = new Set(execucoesDeFatosDemo.map((f) => f.execucao.fonteDadosId));
+    expect(fontesDosFatosDemo).toEqual(new Set(['GERADOR_DEMO']));
   });
 });
 

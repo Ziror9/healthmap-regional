@@ -4,6 +4,7 @@ import type { MunicipioResumoDTO, RiskFiltroResolvidoDTO, RiskScoreItemDTO } fro
 import { AlertTriangle, Building2, Gauge, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import { MapaSP, type MunicipioNoMapa } from '@/components/charts/map';
 import { FilterBar } from '@/components/domain/filter-bar';
 import { FreshnessIndicator } from '@/components/domain/freshness-indicator';
 import { KpiCard } from '@/components/domain/kpi-card';
@@ -19,7 +20,6 @@ import { LoadingState } from '@/components/states/loading-state';
 import { ApiRequestError, getMunicipios, getRisk } from '@/lib/api';
 import { formatCompetenciaLabel, formatIndice, formatNumero } from '@/lib/format';
 import { useRiskFiltersUrl } from '@/lib/use-risk-filters';
-import { Card } from '@/components/ui/card';
 
 /**
  * Visao Geral - "o que esta acontecendo no territorio?". Consome GET
@@ -115,13 +115,27 @@ function DashboardPronto({
 
   const maisCriticos = useMemo(() => [...risco].sort((a, b) => b.indice - a.indice).slice(0, 6), [risco]);
 
+  const municipiosParaMapa = useMemo<MunicipioNoMapa[]>(() => {
+    const riscoPorMunicipioId = new Map(risco.map((item) => [item.municipio.id, item]));
+    return municipios.map((m) => {
+      const r = riscoPorMunicipioId.get(m.id);
+      return {
+        id: m.id,
+        codigoIbge7: m.codigoIbge7,
+        nome: m.nome,
+        classificacao: r?.classificacao ?? null,
+        indice: r?.indice ?? null,
+      };
+    });
+  }, [risco, municipios]);
+
   const primeiroItem = risco[0];
 
   if (!primeiroItem) {
     return (
       <EmptyState
         title="Nenhum resultado do Radar para os filtros selecionados."
-        description="Isso pode significar que a configuração do Radar escolhida ainda não tem componentes calculados, ou que a origem filtrada não tem dado nesta competência."
+        description="A competência mais recente pode ser apenas geográfica/de capacidade (sem Radar calculado ainda). Selecione uma competência de jan/2025 a jun/2025 no filtro acima para ver o Radar calculado sobre a base DEMO — nenhuma competência tem Radar REAL calculado nesta fase (a ingestão do SIH/SUS segue bloqueada, ver Metodologia)."
       />
     );
   }
@@ -173,16 +187,20 @@ function DashboardPronto({
             <RiskScaleLegend />
           </div>
 
-          <Card className="border-dashed p-4 text-xs text-muted-foreground">
-            <p className="font-medium text-foreground">Mapa geográfico indisponível nesta fase.</p>
-            <p className="mt-1 leading-relaxed">
-              Ainda não há GeoJSON oficial dos municípios de São Paulo nem coordenadas (latitude/longitude)
-              populadas na base — bloqueio documentado em <code className="font-mono">docs/known-limitations.md</code>.
-              A visão abaixo agrupa os municípios por Região de Saúde (dado real, já modelado) como alternativa,
-              até que a fonte geográfica oficial esteja disponível.
-            </p>
-          </Card>
+          <MapaSP municipios={municipiosParaMapa} />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Geografia oficial do IBGE — 645 municípios de São Paulo, malha territorial real (ver{' '}
+            <code className="font-mono">apps/web/public/geo/README.md</code>). O Radar de Risco ainda é
+            calculado apenas sobre a base DEMO (municípios ilustrativos, sem geometria própria) — nenhum
+            índice REAL está disponível nesta fase (a ingestão do SIH/SUS segue bloqueada, ver Metodologia).
+            Clique em um município para abrir o detalhe.
+          </p>
 
+          <div className="flex items-center justify-between pt-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Por Região de Saúde
+            </h3>
+          </div>
           <RegionHeatGrid grupos={regioes} />
         </div>
 

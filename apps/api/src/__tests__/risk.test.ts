@@ -113,7 +113,17 @@ describe('GET /api/risk', () => {
   });
 
   it('filtra por origem=DEMO explicitamente', async () => {
-    const res = await fetch(`${baseUrl}/api/risk?origem=DEMO`);
+    // Busca a competencia atraves de um RiskScore DEMO existente, em vez de
+    // depender de "competencia mais recente" ou "mais antiga" como proxy:
+    // desde a Fase 5 a base pode ter competencias so-geograficas/de
+    // capacidade (snapshot CNES REAL) ou so-SIH (sem nenhum RiskScore DEMO)
+    // tanto antes quanto depois das competencias DEMO na ordenacao por
+    // dataRef - ver docs/known-limitations.md.
+    const scoreDemo = await prisma.riskScore.findFirst({ where: { origem: 'DEMO' } });
+    expect(scoreDemo).not.toBeNull();
+    if (!scoreDemo) return;
+
+    const res = await fetch(`${baseUrl}/api/risk?origem=DEMO&competenciaId=${scoreDemo.competenciaId}`);
     expect(res.status).toBe(200);
     const body = await readJson<ApiListEnvelope<RiskScoreItem>>(res);
     expect(body.data.length).toBeGreaterThan(0);

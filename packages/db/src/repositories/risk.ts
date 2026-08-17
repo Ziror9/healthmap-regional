@@ -60,8 +60,20 @@ export interface AgregadoPopulacao {
   populacaoTotal: number;
 }
 
-export async function getMunicipios(prisma: PrismaClient): Promise<MunicipioRef[]> {
-  return prisma.municipio.findMany({ select: { id: true, nome: true }, orderBy: { id: 'asc' } });
+export async function getMunicipios(prisma: PrismaClient, opcoes?: { apenasDemo?: boolean }): Promise<MunicipioRef[]> {
+  // Municipio nao tem coluna "origem" (so os fatos tem) - a distincao usa o
+  // prefixo do codigoIbge7 estabelecido pelo seed DEMO (36xxxxx) vs a
+  // geografia REAL do IBGE (35xxxxx, Fase 5), ver seed-demo.ts. Necessario
+  // para que calculate-risk-demo.ts continue calculando so sobre a base
+  // DEMO depois que a geografia REAL (645 municipios) passou a coexistir na
+  // mesma tabela - sem isso o script processaria 43x mais municipios, e
+  // pior, gravaria RiskScore/RiskComponenteValor com origem 'DEMO' para
+  // municipios REAIS que nunca fizeram parte do seed.
+  return prisma.municipio.findMany({
+    select: { id: true, nome: true },
+    where: opcoes?.apenasDemo ? { codigoIbge7: { startsWith: '36' } } : undefined,
+    orderBy: { id: 'asc' },
+  });
 }
 
 export async function getCompetencias(prisma: PrismaClient): Promise<CompetenciaRef[]> {

@@ -20,7 +20,7 @@ import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ApiRequestError, getIndicadores, getMunicipio, getRiskComponentes } from '@/lib/api';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
-import { getComponenteLabel, getMotivoIndisponibilidade } from '@/lib/risk-display';
+import { getComponenteLabel, getMotivoIndisponibilidade, inferOrigemMunicipio } from '@/lib/risk-display';
 
 type EstadoPagina =
   | { tipo: 'carregando' }
@@ -131,12 +131,15 @@ export default function MunicipioDetalhePage() {
   }
 
   const { municipio, indicadoresCatalogo } = estado;
+  const origemMunicipio = inferOrigemMunicipio(municipio.codigoIbge7);
 
   return (
     <>
       <PageHeader
         title={municipio.nome}
-        description={`${municipio.regiaoSaude.nome} · ${municipio.uf} · Código IBGE ${municipio.codigoIbge7}`}
+        description={`${municipio.regiaoSaude.nome} · ${municipio.uf} · Código IBGE ${municipio.codigoIbge7}${
+          origemMunicipio === 'DEMO' ? ' · Município ilustrativo (DEMO) — pode ter o mesmo nome de um município real' : ''
+        }`}
         actions={
           <Link href="/radar" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
             <ArrowLeft className="h-3.5 w-3.5" aria-hidden />

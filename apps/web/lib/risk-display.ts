@@ -179,6 +179,20 @@ export function getOrigemDisplay(origem: Origem): OrigemDisplay {
   return ORIGEM_DISPLAY[origem];
 }
 
+/**
+ * Municipio (dimensao geografica) nao tem coluna Origem no schema - só os
+ * fatos tem (ver docs/data-model.md #3). A distincao usa o prefixo do
+ * codigoIbge7: `36` é o prefixo sintetico que o seed DEMO usa (nunca é UF
+ * valida em nenhum estado, ver seed-demo.ts), `35` é a UF real de SP.
+ * Necessário porque alguns dos 15 municipios DEMO ilustrativos reusam o
+ * nome de um municipio REAL homônimo (ex.: "Campinas", "Bauru", "Santos")
+ * - sem este indicador as duas linhas ficariam indistinguíveis pelo nome
+ * no catálogo e no detalhe de município.
+ */
+export function inferOrigemMunicipio(codigoIbge7: string): Origem {
+  return codigoIbge7.startsWith('36') ? 'DEMO' : 'REAL';
+}
+
 /** Rotulo em portugues para cada componente do Radar - so apresentacao, o valor vem sempre da API. */
 const COMPONENTE_LABEL: Record<ComponenteRisco, string> = {
   PRESSAO_HOSPITALAR_ESTIMADA: 'Pressão Hospitalar Estimada',

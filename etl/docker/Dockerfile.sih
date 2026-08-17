@@ -1,0 +1,27 @@
+# Ambiente isolado so para a ingestao REAL do SIH/SUS (etl/ingest_sih.py).
+#
+# Por que este Dockerfile existe: pysus depende de pyreaddbc (extensao C)
+# que so publica wheel pre-compilado para Linux - no Windows exigiria
+# Microsoft Visual C++ Build Tools e compilacao do zero (bloqueio real
+# documentado em etl/healthmap_etl/sources/sih.py). Um container Linux
+# resolve isso sem alterar o ambiente principal do host nem o
+# docker-compose.yml do projeto (que continua exclusivo de
+# PostgreSQL+Adminer - ver CLAUDE.md).
+#
+# Uso, a partir da raiz do repositorio (ver etl/README.md para o comando
+# completo, incluindo o ajuste de DATABASE_URL para host.docker.internal):
+#
+#   docker build -f etl/docker/Dockerfile.sih -t healthmap-etl-sih .
+#   docker run --rm -e DATABASE_URL="postgresql://...@host.docker.internal:5432/healthmap?schema=public" healthmap-etl-sih
+
+FROM python:3.11-slim
+
+WORKDIR /etl
+
+COPY etl/docker/requirements-sih.txt ./requirements-sih.txt
+RUN pip install --no-cache-dir -r requirements-sih.txt
+
+COPY etl/healthmap_etl ./healthmap_etl
+COPY etl/ingest_sih.py ./ingest_sih.py
+
+CMD ["python", "ingest_sih.py"]

@@ -1,0 +1,10 @@
+# Dependencias exclusivas da ingestao SIH/SUS (etl/ingest_sih.py) - so
+# instaladas dentro do container Linux (etl/docker/Dockerfile.sih), nunca no
+# Python principal do host. pysus depende de pyreaddbc (extensao C) que so
+# tem wheel pre-compilado para Linux, nao para Windows - ver
+# etl/healthmap_etl/sources/sih.py.
+pysus>=2.8,<3
+pandas>=2.2,<3
+pyarrow>=17,<19
+psycopg[binary]>=3.1,<4
+python-dotenv>=1.0,<2

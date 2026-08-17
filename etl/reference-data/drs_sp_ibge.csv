@@ -1,0 +1,646 @@
+codigo_ibge6,drs_numero,drs_nome
+350010,09,Marília
+350020,15,São José do Rio Preto
+350030,14,São João da Boa Vista
+350040,14,São João da Boa Vista
+350050,07,Campinas
+350055,06,Bauru
+350060,10,Piracicaba
+350070,06,Bauru
+350075,16,Sorocaba
+350080,11,Presidente Prudente
+350090,05,Barretos
+350100,13,Ribeirão Preto
+350110,02,Araçatuba
+350115,16,Sorocaba
+350120,15,São José do Rio Preto
+350130,11,Presidente Prudente
+350140,09,Marília
+350150,09,Marília
+350160,07,Campinas
+350170,03,Araraquara
+350180,15,São José do Rio Preto
+350190,07,Campinas
+350200,10,Piracicaba
+350210,02,Araçatuba
+350220,16,Sorocaba
+350230,06,Bauru
+350240,11,Presidente Prudente
+350250,17,Taubaté
+350260,15,São José do Rio Preto
+350270,16,Sorocaba
+350275,16,Sorocaba
+350280,02,Araçatuba
+350290,16,Sorocaba
+350300,08,Franca
+350310,06,Bauru
+350315,17,Taubaté
+350320,03,Araraquara
+350330,10,Piracicaba
+350335,09,Marília
+350340,06,Bauru
+350350,17,Taubaté
+350360,06,Bauru
+350370,15,São José do Rio Preto
+350380,07,Campinas
+350390,01,Grande São Paulo
+350395,15,São José do Rio Preto
+350400,09,Marília
+350410,07,Campinas
+350420,02,Araçatuba
+350430,06,Bauru
+350440,02,Araçatuba
+350450,06,Bauru
+350460,15,São José do Rio Preto
+350470,06,Bauru
+350480,15,São José do Rio Preto
+350490,17,Taubaté
+350500,06,Bauru
+350510,02,Araçatuba
+350520,06,Bauru
+350530,06,Bauru
+350535,16,Sorocaba
+350540,12,Registro
+350550,05,Barretos
+350560,13,Ribeirão Preto
+350570,01,Grande São Paulo
+350580,09,Marília
+350590,13,Ribeirão Preto
+350600,06,Bauru
+350610,05,Barretos
+350620,02,Araçatuba
+350630,09,Marília
+350635,04,Baixada Santista
+350640,02,Araçatuba
+350650,02,Araçatuba
+350660,01,Grande São Paulo
+350670,03,Araraquara
+350680,06,Bauru
+350690,06,Bauru
+350700,16,Sorocaba
+350710,07,Campinas
+350715,16,Sorocaba
+350720,09,Marília
+350730,06,Bauru
+350740,03,Araraquara
+350745,06,Bauru
+350750,06,Bauru
+350760,07,Campinas
+350770,02,Araçatuba
+350775,02,Araçatuba
+350780,13,Ribeirão Preto
+350790,06,Bauru
+350800,16,Sorocaba
+350810,02,Araçatuba
+350820,08,Franca
+350830,06,Bauru
+350840,07,Campinas
+350850,17,Taubaté
+350860,17,Taubaté
+350870,14,São João da Boa Vista
+350880,06,Bauru
+350890,11,Presidente Prudente
+350900,01,Grande São Paulo
+350910,11,Presidente Prudente
+350920,01,Grande São Paulo
+350925,12,Registro
+350930,05,Barretos
+350940,13,Ribeirão Preto
+350945,16,Sorocaba
+350950,07,Campinas
+350960,07,Campinas
+350970,17,Taubaté
+350980,09,Marília
+350990,12,Registro
+350995,17,Taubaté
+351000,09,Marília
+351010,03,Araraquara
+351015,09,Marília
+351020,16,Sorocaba
+351030,16,Sorocaba
+351040,10,Piracicaba
+351050,17,Taubaté
+351060,01,Grande São Paulo
+351070,15,São José do Rio Preto
+351080,14,São João da Boa Vista
+351090,13,Ribeirão Preto
+351100,02,Araçatuba
+351110,15,São José do Rio Preto
+351120,15,São José do Rio Preto
+351130,15,São José do Rio Preto
+351140,06,Bauru
+351150,16,Sorocaba
+351160,16,Sorocaba
+351170,10,Piracicaba
+351190,02,Araçatuba
+351200,05,Barretos
+351210,05,Barretos
+351220,10,Piracicaba
+351230,06,Bauru
+351240,10,Piracicaba
+351250,02,Araçatuba
+351260,06,Bauru
+351270,10,Piracicaba
+351280,07,Campinas
+351290,15,São José do Rio Preto
+351300,01,Grande São Paulo
+351310,13,Ribeirão Preto
+351320,08,Franca
+351330,09,Marília
+351340,17,Taubaté
+351350,04,Baixada Santista
+351360,17,Taubaté
+351370,03,Araraquara
+351380,01,Grande São Paulo
+351385,15,São José do Rio Preto
+351390,14,São João da Boa Vista
+351400,03,Araraquara
+351410,06,Bauru
+351420,15,São José do Rio Preto
+351430,03,Araraquara
+351440,11,Presidente Prudente
+351450,06,Bauru
+351460,13,Ribeirão Preto
+351470,09,Marília
+351480,12,Registro
+351490,10,Piracicaba
+351492,15,São José do Rio Preto
+351495,15,São José do Rio Preto
+351500,01,Grande São Paulo
+351510,01,Grande São Paulo
+351512,11,Presidente Prudente
+351515,10,Piracicaba
+351518,14,São João da Boa Vista
+351519,09,Marília
+351520,15,São José do Rio Preto
+351530,11,Presidente Prudente
+351535,11,Presidente Prudente
+351540,06,Bauru
+351550,15,São José do Rio Preto
+351560,15,São José do Rio Preto
+351565,09,Marília
+351570,01,Grande São Paulo
+351580,11,Presidente Prudente
+351590,15,São José do Rio Preto
+351600,09,Marília
+351610,09,Marília
+351620,08,Franca
+351630,01,Grande São Paulo
+351640,01,Grande São Paulo
+351650,02,Araçatuba
+351660,09,Marília
+351670,09,Marília
+351680,15,São José do Rio Preto
+351685,03,Araraquara
+351690,15,São José do Rio Preto
+351700,06,Bauru
+351710,02,Araçatuba
+351720,06,Bauru
+351730,09,Marília
+351740,05,Barretos
+351750,15,São José do Rio Preto
+351760,16,Sorocaba
+351770,08,Franca
+351780,02,Araçatuba
+351790,05,Barretos
+351800,15,São José do Rio Preto
+351810,09,Marília
+351820,02,Araçatuba
+351830,01,Grande São Paulo
+351840,17,Taubaté
+351850,16,Sorocaba
+351860,13,Ribeirão Preto
+351870,04,Baixada Santista
+351880,01,Grande São Paulo
+351885,13,Ribeirão Preto
+351890,02,Araçatuba
+351900,09,Marília
+351905,07,Campinas
+351907,07,Campinas
+351910,06,Bauru
+351920,09,Marília
+351925,06,Bauru
+351930,03,Araraquara
+351940,15,São José do Rio Preto
+351950,09,Marília
+351960,03,Araraquara
+351970,16,Sorocaba
+351980,15,São José do Rio Preto
+351990,11,Presidente Prudente
+352000,06,Bauru
+352010,08,Franca
+352020,17,Taubaté
+352030,12,Registro
+352040,17,Taubaté
+352042,12,Registro
+352044,02,Araçatuba
+352050,07,Campinas
+352060,11,Presidente Prudente
+352070,15,São José do Rio Preto
+352080,09,Marília
+352090,09,Marília
+352100,16,Sorocaba
+352110,10,Piracicaba
+352115,15,São José do Rio Preto
+352120,12,Registro
+352130,08,Franca
+352140,10,Piracicaba
+352150,15,São José do Rio Preto
+352160,11,Presidente Prudente
+352170,16,Sorocaba
+352180,06,Bauru
+352190,15,São José do Rio Preto
+352200,06,Bauru
+352210,04,Baixada Santista
+352215,16,Sorocaba
+352220,01,Grande São Paulo
+352230,16,Sorocaba
+352240,16,Sorocaba
+352250,01,Grande São Paulo
+352260,14,São João da Boa Vista
+352265,16,Sorocaba
+352270,03,Araraquara
+352280,06,Bauru
+352290,06,Bauru
+352300,02,Araçatuba
+352310,01,Grande São Paulo
+352320,16,Sorocaba
+352330,12,Registro
+352340,07,Campinas
+352350,06,Bauru
+352360,10,Piracicaba
+352370,08,Franca
+352380,14,São João da Boa Vista
+352390,16,Sorocaba
+352400,07,Campinas
+352410,08,Franca
+352420,05,Barretos
+352430,13,Ribeirão Preto
+352440,17,Taubaté
+352450,15,São José do Rio Preto
+352460,12,Registro
+352470,07,Campinas
+352480,15,São José do Rio Preto
+352490,17,Taubaté
+352500,01,Grande São Paulo
+352510,13,Ribeirão Preto
+352520,07,Campinas
+352530,06,Bauru
+352540,08,Franca
+352550,07,Campinas
+352560,11,Presidente Prudente
+352570,15,São José do Rio Preto
+352580,09,Marília
+352585,16,Sorocaba
+352590,07,Campinas
+352600,11,Presidente Prudente
+352610,12,Registro
+352620,01,Grande São Paulo
+352630,17,Taubaté
+352640,06,Bauru
+352650,02,Araçatuba
+352660,17,Taubaté
+352670,10,Piracicaba
+352680,06,Bauru
+352690,10,Piracicaba
+352700,07,Campinas
+352710,06,Bauru
+352720,17,Taubaté
+352725,02,Araçatuba
+352730,07,Campinas
+352740,09,Marília
+352750,06,Bauru
+352760,13,Ribeirão Preto
+352770,02,Araçatuba
+352780,09,Marília
+352790,09,Marília
+352800,06,Bauru
+352810,15,São José do Rio Preto
+352820,15,São José do Rio Preto
+352830,15,São José do Rio Preto
+352840,16,Sorocaba
+352850,01,Grande São Paulo
+352860,06,Bauru
+352870,11,Presidente Prudente
+352880,09,Marília
+352885,15,São José do Rio Preto
+352890,09,Marília
+352900,09,Marília
+352910,15,São José do Rio Preto
+352920,11,Presidente Prudente
+352930,03,Araraquara
+352940,01,Grande São Paulo
+352950,15,São José do Rio Preto
+352960,15,São José do Rio Preto
+352965,15,São José do Rio Preto
+352970,08,Franca
+352980,06,Bauru
+352990,12,Registro
+353000,15,São José do Rio Preto
+353010,02,Araçatuba
+353020,11,Presidente Prudente
+353030,15,São José do Rio Preto
+353040,15,São José do Rio Preto
+353050,14,São João da Boa Vista
+353060,01,Grande São Paulo
+353070,14,São João da Boa Vista
+353080,14,São João da Boa Vista
+353090,10,Piracicaba
+353100,15,São José do Rio Preto
+353110,04,Baixada Santista
+353120,07,Campinas
+353130,13,Ribeirão Preto
+353140,15,São José do Rio Preto
+353150,05,Barretos
+353160,11,Presidente Prudente
+353170,17,Taubaté
+353180,07,Campinas
+353190,08,Franca
+353200,07,Campinas
+353205,03,Araraquara
+353210,02,Araçatuba
+353215,11,Presidente Prudente
+353220,11,Presidente Prudente
+353230,17,Taubaté
+353240,07,Campinas
+353250,15,São José do Rio Preto
+353260,15,São José do Rio Preto
+353270,15,São José do Rio Preto
+353280,15,São José do Rio Preto
+353282,16,Sorocaba
+353284,15,São José do Rio Preto
+353286,02,Araçatuba
+353290,03,Araraquara
+353300,15,São José do Rio Preto
+353310,11,Presidente Prudente
+353320,02,Araçatuba
+353325,15,São José do Rio Preto
+353330,02,Araçatuba
+353340,07,Campinas
+353350,15,São José do Rio Preto
+353360,08,Franca
+353370,09,Marília
+353380,09,Marília
+353390,05,Barretos
+353400,15,São José do Rio Preto
+353410,09,Marília
+353420,15,São José do Rio Preto
+353430,08,Franca
+353440,01,Grande São Paulo
+353450,09,Marília
+353460,09,Marília
+353470,09,Marília
+353475,15,São José do Rio Preto
+353480,11,Presidente Prudente
+353490,09,Marília
+353500,15,São José do Rio Preto
+353510,15,São José do Rio Preto
+353520,15,São José do Rio Preto
+353530,09,Marília
+353540,11,Presidente Prudente
+353550,09,Marília
+353560,17,Taubaté
+353570,15,São José do Rio Preto
+353580,06,Bauru
+353590,15,São José do Rio Preto
+353600,09,Marília
+353610,06,Bauru
+353620,12,Registro
+353625,15,São José do Rio Preto
+353630,08,Franca
+353640,11,Presidente Prudente
+353650,07,Campinas
+353657,06,Bauru
+353660,15,São José do Rio Preto
+353670,06,Bauru
+353680,07,Campinas
+353690,15,São José do Rio Preto
+353700,08,Franca
+353710,07,Campinas
+353715,09,Marília
+353720,12,Registro
+353730,02,Araçatuba
+353740,02,Araçatuba
+353750,06,Bauru
+353760,04,Baixada Santista
+353770,02,Araçatuba
+353780,16,Sorocaba
+353790,16,Sorocaba
+353800,17,Taubaté
+353810,15,São José do Rio Preto
+353820,07,Campinas
+353830,11,Presidente Prudente
+353850,17,Taubaté
+353860,07,Campinas
+353870,10,Piracicaba
+353880,06,Bauru
+353890,06,Bauru
+353900,15,São José do Rio Preto
+353910,01,Grande São Paulo
+353920,11,Presidente Prudente
+353930,10,Piracicaba
+353940,06,Bauru
+353950,13,Ribeirão Preto
+353960,15,São José do Rio Preto
+353970,09,Marília
+353980,01,Grande São Paulo
+353990,15,São José do Rio Preto
+354000,09,Marília
+354010,06,Bauru
+354020,13,Ribeirão Preto
+354025,15,São José do Rio Preto
+354030,15,São José do Rio Preto
+354040,15,São José do Rio Preto
+354050,06,Bauru
+354060,16,Sorocaba
+354070,03,Araraquara
+354075,17,Taubaté
+354080,15,São José do Rio Preto
+354085,09,Marília
+354090,13,Ribeirão Preto
+354100,04,Baixada Santista
+354105,06,Bauru
+354110,06,Bauru
+354120,11,Presidente Prudente
+354130,11,Presidente Prudente
+354140,11,Presidente Prudente
+354150,11,Presidente Prudente
+354160,06,Bauru
+354165,16,Sorocaba
+354170,11,Presidente Prudente
+354180,09,Marília
+354190,17,Taubaté
+354200,09,Marília
+354210,10,Piracicaba
+354220,11,Presidente Prudente
+354230,17,Taubaté
+354240,11,Presidente Prudente
+354250,06,Bauru
+354260,12,Registro
+354270,08,Franca
+354280,16,Sorocaba
+354290,03,Araraquara
+354300,16,Sorocaba
+354310,08,Franca
+354320,09,Marília
+354323,11,Presidente Prudente
+354325,16,Sorocaba
+354330,01,Grande São Paulo
+354340,13,Ribeirão Preto
+354350,16,Sorocaba
+354360,08,Franca
+354370,03,Araraquara
+354380,09,Marília
+354390,10,Piracicaba
+354400,10,Piracicaba
+354410,01,Grande São Paulo
+354420,15,São José do Rio Preto
+354425,11,Presidente Prudente
+354430,17,Taubaté
+354440,02,Araçatuba
+354450,15,São José do Rio Preto
+354460,06,Bauru
+354470,09,Marília
+354480,15,São José do Rio Preto
+354490,08,Franca
+354500,01,Grande São Paulo
+354510,09,Marília
+354515,10,Piracicaba
+354520,16,Sorocaba
+354530,16,Sorocaba
+354540,09,Marília
+354550,11,Presidente Prudente
+354560,15,São José do Rio Preto
+354570,15,São José do Rio Preto
+354580,07,Campinas
+354600,17,Taubaté
+354610,15,São José do Rio Preto
+354620,10,Piracicaba
+354625,13,Ribeirão Preto
+354630,14,São João da Boa Vista
+354640,09,Marília
+354650,03,Araraquara
+354660,15,São José do Rio Preto
+354670,10,Piracicaba
+354680,01,Grande São Paulo
+354690,03,Araraquara
+354700,10,Piracicaba
+354710,11,Presidente Prudente
+354720,15,São José do Rio Preto
+354730,01,Grande São Paulo
+354740,15,São José do Rio Preto
+354750,13,Ribeirão Preto
+354760,13,Ribeirão Preto
+354765,15,São José do Rio Preto
+354770,11,Presidente Prudente
+354780,01,Grande São Paulo
+354790,13,Ribeirão Preto
+354800,07,Campinas
+354805,02,Araçatuba
+354810,14,São João da Boa Vista
+354820,17,Taubaté
+354830,11,Presidente Prudente
+354840,02,Araçatuba
+354850,04,Baixada Santista
+354860,17,Taubaté
+354870,01,Grande São Paulo
+354880,01,Grande São Paulo
+354890,03,Araraquara
+354900,15,São José do Rio Preto
+354910,14,São João da Boa Vista
+354920,15,São José do Rio Preto
+354925,15,São José do Rio Preto
+354930,11,Presidente Prudente
+354940,08,Franca
+354950,08,Franca
+354960,17,Taubaté
+354970,14,São João da Boa Vista
+354980,15,São José do Rio Preto
+354990,17,Taubaté
+354995,01,Grande São Paulo
+355000,17,Taubaté
+355010,06,Bauru
+355020,16,Sorocaba
+355030,01,Grande São Paulo
+355040,10,Piracicaba
+355050,09,Marília
+355060,16,Sorocaba
+355070,17,Taubaté
+355080,14,São João da Boa Vista
+355090,13,Ribeirão Preto
+355100,04,Baixada Santista
+355110,16,Sorocaba
+355120,06,Bauru
+355130,15,São José do Rio Preto
+355140,13,Ribeirão Preto
+355150,13,Ribeirão Preto
+355160,07,Campinas
+355170,13,Ribeirão Preto
+355180,12,Registro
+355190,05,Barretos
+355200,17,Taubaté
+355210,07,Campinas
+355220,16,Sorocaba
+355230,02,Araçatuba
+355240,07,Campinas
+355250,01,Grande São Paulo
+355255,02,Araçatuba
+355260,15,São José do Rio Preto
+355270,03,Araraquara
+355280,01,Grande São Paulo
+355290,11,Presidente Prudente
+355300,06,Bauru
+355310,05,Barretos
+355320,05,Barretos
+355330,14,São João da Boa Vista
+355340,15,São José do Rio Preto
+355350,16,Sorocaba
+355360,14,São João da Boa Vista
+355365,05,Barretos
+355370,03,Araraquara
+355380,06,Bauru
+355385,16,Sorocaba
+355390,11,Presidente Prudente
+355395,09,Marília
+355400,16,Sorocaba
+355410,17,Taubaté
+355420,06,Bauru
+355430,11,Presidente Prudente
+355440,05,Barretos
+355450,16,Sorocaba
+355460,09,Marília
+355465,06,Bauru
+355470,06,Bauru
+355475,03,Araraquara
+355480,17,Taubaté
+355490,15,São José do Rio Preto
+355495,07,Campinas
+355500,09,Marília
+355510,11,Presidente Prudente
+355520,02,Araçatuba
+355530,15,São José do Rio Preto
+355535,15,São José do Rio Preto
+355540,17,Taubaté
+355550,09,Marília
+355560,15,São José do Rio Preto
+355570,15,São José do Rio Preto
+355580,15,São José do Rio Preto
+355590,06,Bauru
+355600,15,São José do Rio Preto
+355610,15,São José do Rio Preto
+355620,07,Campinas
+355630,02,Araçatuba
+355635,07,Campinas
+355640,14,São João da Boa Vista
+355645,01,Grande São Paulo
+355650,07,Campinas
+355660,09,Marília
+355670,07,Campinas
+355680,05,Barretos
+355690,05,Barretos
+355695,15,São José do Rio Preto
+355700,16,Sorocaba
+355710,15,São José do Rio Preto
+355715,15,São José do Rio Preto
+355720,09,Marília
+355730,14,São João da Boa Vista

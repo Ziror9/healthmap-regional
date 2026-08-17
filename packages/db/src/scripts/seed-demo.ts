@@ -16,13 +16,25 @@
  * reexecutar o seed converge para o mesmo estado em vez de duplicar linhas.
  *
  * IMPORTANTE sobre a geografia: os NOMES dos municipios sao reais (dado
- * publico). Os codigos IBGE abaixo sao SINTETICOS (prefixo '35' + indice
+ * publico). Os codigos IBGE abaixo sao SINTETICOS (prefixo '36' + indice
  * sequencial), deliberadamente nao-realistas para nao serem confundidos com
  * codigos oficiais (CLAUDE.md proibe apresentar dado inventado como se fosse
- * fonte oficial). Isso e uma pendencia explicita - ver docs/known-limitations.md:
- * a base geografica completa e real (645 municipios de SP) fica para quando
- * houver uma fonte oficial machine-readable a ingerir, nao para ser digitada
- * de memoria.
+ * fonte oficial).
+ *
+ * Por que '36', nao '35': '35' e o codigo real da UF de Sao Paulo - um
+ * prefixo '35xxxx' colide, ao truncar para 6 digitos, com codigos IBGE reais
+ * de municipios de SP (descoberto na Fase 5, ao ingerir a geografia real
+ * pela primeira vez: 'Municipio_codigoIbge6_key' colidiu). '36' nao e uma UF
+ * brasileira valida (as UFs pulam de 35=SP para 41=PR) - garante ausencia de
+ * colisao com QUALQUER codigo IBGE real de qualquer estado, nao so SP.
+ *
+ * A partir da Fase 5, a base geografica REAL completa (645 municipios de SP,
+ * codigos oficiais do IBGE) tambem existe no banco, carregada por
+ * etl/ingest_geografia.py - ver docs/fase-5-relatorio.md. Os municipios DEMO
+ * abaixo continuam existindo em paralelo (nomes iguais, codigos sinteticos
+ * '36xxxxx' diferentes dos reais '35xxxxx') porque os fatos DEMO ja gravados
+ * (FatoInternacaoResidencia, RiskScore etc.) apontam para eles - substitui-los
+ * quebraria a proveniencia historica DEMO.
  */
 import { config as loadEnv } from 'dotenv';
 import { resolve } from 'node:path';
@@ -167,7 +179,9 @@ function ibgeCode(index: number): { codigo7: string; codigo6: string } {
   // codigo6 carrega o indice (unico por municipio); codigo7 = codigo6 + digito
   // extra, espelhando a relacao real (IBGE7 = IBGE6 + digito verificador),
   // sem que isso seja um digito verificador de verdade - e sintetico.
-  const codigo6 = `35${String(index).padStart(4, '0')}`;
+  // Prefixo '36': nao e uma UF brasileira valida - garante zero colisao com
+  // codigos IBGE reais de qualquer estado (ver comentario no topo do arquivo).
+  const codigo6 = `36${String(index).padStart(4, '0')}`;
   const codigo7 = `${codigo6}0`;
   return { codigo7, codigo6 };
 }

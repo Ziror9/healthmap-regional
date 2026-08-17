@@ -70,11 +70,27 @@ definida amanha).
 | `GrupoCid`       | codigo, descricao, agrupamento, capitulo                                                    | Recorte C00-C97; `agrupamento` permite corte por topografia    |
 | `Estabelecimento`| codigoCnes, nome, municipioId, tipo, habilitacaoOncologica                                  | O municipio aqui e sempre o de **internacao**                  |
 
-**Nota sobre a carga geografica da Fase 1:** o seed DEMO carrega apenas 15
-municipios ilustrativos de SP (nomes reais) com **codigos IBGE sinteticos**
-(sequenciais, deliberadamente nao-realistas) e 5 agrupamentos de regiao de
-saude tambem ilustrativos - nao a base oficial completa de 645 municipios
-prevista neste documento. Ver `docs/known-limitations.md`.
+**Nota sobre a carga geografica (atualizada na Fase 5):** a tabela `Municipio`
+agora tem duas populacoes coexistindo pelo prefixo do `codigoIbge7`, nunca
+misturadas:
+
+- **REAL** (`35xxxxx`, 645 linhas): os 645 municipios oficiais de Sao Paulo,
+  ingeridos da API do IBGE (`etl/ingest_geografia.py`), com `codigoIbge6`/
+  `codigoIbge7` reais, `regiaoSaudeId` apontando para um dos 17 DRS oficiais
+  (fonte: SES-SP, ver `etl/reference-data/README.md`), e `latitude`/
+  `longitude` como centroide aproximado (media de vertices do poligono do
+  IBGE - nao o centroide de area exato, ver docstring de
+  `centroide_aproximado` em `ingest_geografia.py`).
+- **DEMO** (`36xxxxx`, 15 linhas): a mesma base ilustrativa da Fase 1, com
+  codigos sinteticos que usam um prefixo (`36`) que nao e UF valida em nenhum
+  estado brasileiro - escolhido deliberadamente para garantir zero colisao
+  com qualquer codigo IBGE real (ver `packages/db/src/scripts/seed-demo.ts`).
+
+O Radar de Risco (`RiskScore`/`RiskComponenteValor`) so e calculado sobre os
+municipios DEMO nesta fase - `calculate-risk-demo.ts` filtra explicitamente
+por `codigoIbge7` prefixo `36` (`getMunicipios(prisma, { apenasDemo: true })`)
+para nao gerar linhas com `origem: 'DEMO'` para os 645 municipios REAIS, que
+nunca fizeram parte do seed. Ver `docs/fase-5-relatorio.md`.
 
 ## 4. Fatos - eixo residencia (`gold`)
 

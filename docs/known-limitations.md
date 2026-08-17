@@ -7,16 +7,23 @@
 
 - **O projeto nao esta pronto para uso operacional.** Nao deve embasar decisao
   de saude publica no estado atual.
-- Fases 0-4 concluidas (Fase 2, Fase 3 e Fase 4 parciais - ver secoes 5, 8 e
-  9): existe fundacao tecnica, schema de dominio, migrations, base DEMO
+- Fases 0-5 concluidas (Fase 2, 3, 4 e 5 parciais - ver secoes 5, 8, 9 e 10):
+  existe fundacao tecnica, schema de dominio, migrations, base DEMO
   deterministica, motor de risco funcional sobre essa base, uma API REST
-  somente-leitura expondo esses dados, e um dashboard navegavel consumindo
-  essa API.
+  somente-leitura expondo esses dados, um dashboard navegavel consumindo
+  essa API (agora com mapa geografico real de SP), e uma primeira ingestao
+  REAL (geografia IBGE completa + capacidade de leitos CNES) convivendo com
+  a base DEMO sem mistura.
 - **A API (Fase 3) e o frontend (Fase 4) sao publicos, sem autenticacao nem
   RBAC efetivo** - ver secao 7. Nao devem ser expostos fora de ambiente de
   desenvolvimento.
-- **O Radar de Risco calculado na Fase 2 e parcial, nao os 4 componentes
-  previstos.** Ver secao 5 abaixo.
+- **O Radar de Risco continua parcial e continua calculado so sobre a base
+  DEMO.** A ingestao REAL da Fase 5 trouxe geografia, capacidade de leitos
+  e (numa segunda rodada) internacoes oncologicas do SIH/SUS para uma
+  competencia de prova de conceito (2024-02) - mas Pressao Hospitalar
+  Estimada REAL continua indisponivel porque as duas fontes REAL que ela
+  precisa (SIH e CNES) nao tem nenhuma competencia em comum ainda (motivo
+  completo: secao 10, `docs/sih-methodology.md` #9). Ver secoes 5 e 10.
 
 ## 2. Dados
 
@@ -24,32 +31,48 @@
   gerada por um script deterministico (`packages/db/src/scripts/seed-demo.ts`)
   para desenvolvimento e validacao do schema. Nenhum valor DEMO pode ser lido
   como informacao sobre a situacao real de qualquer municipio.
-- **A geografia da Fase 1 tambem NAO e oficial.** O seed carrega apenas 15
-  municipios ilustrativos de SP (nomes reais, de conhecimento publico) e 5
-  agrupamentos de regiao de saude tambem ilustrativos. Os **codigos IBGE sao
-  sinteticos** (sequencia obviamente nao-realista, ex. `3500010`) - foram
-  gerados assim de proposito, para nao correr o risco de apresentar um
-  codigo inventado como se fosse a tabela oficial do IBGE (o que violaria a
-  regra deste projeto de nunca inventar dado apresentado como fonte oficial).
-  A carga completa e oficial dos 645 municipios de SP com codigos IBGE reais
-  fica pendente para quando houver uma fonte oficial machine-readable a
-  ingerir (Fase 5 ou uma tarefa dedicada antes dela) - nao deve ser digitada
-  de memoria.
-- **Taxonomias provisorias, nao validadas contra a fonte real:**
-  - `FaixaEtaria` usa corte decenal (`FX_00_09` ... `FX_80_MAIS`). Nenhum
-    documento do projeto confirma que o SIH/IBGE usam exatamente esse corte;
-    a granularidade real (decenal, quinquenal, ou outra) precisa ser
-    confirmada antes da ingestao REAL (Fase 5), pois mudar a taxonomia depois
-    de ha dados reais carregados exige migracao.
+- **A geografia agora e oficial (resolvido na Fase 5).** `etl/ingest_geografia.py`
+  carrega os 645 municipios oficiais de SP direto da API do IBGE (codigos
+  IBGE7/IBGE6 reais) e os 17 Departamentos Regionais de Saude oficiais
+  (fonte: SES-SP, referencia local versionada em
+  `etl/reference-data/drs_sp_ibge.csv`, procedencia documentada em
+  `etl/reference-data/README.md`). Convive com os 15 municipios DEMO
+  ilustrativos (prefixo sintetico `36xxxxx`, escolhido para nao colidir com
+  nenhum codigo IBGE real de nenhum estado) sem mistura - ver
+  `docs/data-model.md` #3 e `docs/fase-5-relatorio.md`.
+  `latitude`/`longitude` dos municipios REAIS sao um centroide aproximado
+  (media dos vertices do poligono do IBGE, nao o centroide de area exato) -
+  suficiente para o mapa da Visao Geral, documentado como aproximacao.
+- **Taxonomias provisorias, nao validadas contra a fonte real (continuam
+  pendentes - a cobertura SIH ingerida ate agora e so um POC de 1
+  competencia, insuficiente para validar isso em definitivo):**
+  - `FaixaEtaria` usa corte decenal (`FX_00_09` ... `FX_80_MAIS`). O SIH-RD
+    real usa `COD_IDADE` (dias/meses/anos) + `IDADE`, mapeado para o corte
+    decenal em `healthmap_etl/sih_transform.py` - ver `docs/sih-methodology.md`
+    §4. O corte decenal em si nunca foi confirmado como o padrao oficial do
+    produto, so passou a ser alimentavel por dado real.
   - `TipoLeito` usa uma taxonomia simplificada (`CLINICO`, `CIRURGICO`, `UTI`,
-    `OUTRO`), nao validada contra o dicionario de dados do CNES. Tambem em
-    aberto se o recorte certo para a formula de Pressao Hospitalar Estimada e
-    "tipo de leito" ou "habilitacao oncologica do estabelecimento" (ja
-    modelada em `Estabelecimento.habilitacaoOncologica`) - ver
-    `docs/risk-methodology.md`.
-- **Integracao com o SIH/SUS ainda nao implementada.**
-- **Integracao com o CNES ainda nao implementada.**
-- **Integracao com o IBGE ainda nao implementada.**
+    `OUTRO`), nao validada contra o dicionario de dados do CNES. A ingestao
+    REAL de leitos (Fase 5) so grava `UTI` e `OUTRO` - a fonte usada
+    (`/assistencia-a-saude/hospitais-e-leitos`) nao distingue
+    `CLINICO`/`CIRURGICO` dentro do total nao-UTI, e ratear essa diferenca
+    exigiria uma premissa nao documentada (ver `etl/ingest_cnes.py`).
+    Tambem em aberto se o recorte certo para a formula de Pressao
+    Hospitalar Estimada e "tipo de leito" ou "habilitacao oncologica do
+    estabelecimento" - ver `docs/risk-methodology.md`.
+- **Integracao com o SIH/SUS implementada para um POC controlado (segunda
+  rodada da Fase 5)** - `FatoInternacaoResidencia`/`FatoInternacaoLocal`
+  REAL existem para 1 competencia (2024-02, SP). Ver secao 10 e
+  `docs/sih-methodology.md` para cobertura exata, decisoes e limitacoes.
+- **Integracao com o CNES implementada parcialmente (Fase 5).** Ver secao 10.
+- **Integracao com o IBGE implementada (Fase 5)** para municipios e malha
+  territorial (GeoJSON). **Populacao (Censo 2022, tabela 9514 do SIDRA) foi
+  investigada mas nao implementada nesta fase** - fonte identificada e
+  publica, mas a ingestao ficou fora do tempo disponivel da Fase 5; a base
+  DEMO de `Populacao` continua sendo o unico dado de populacao no sistema.
+  Sem populacao REAL, a taxa de internacao por 10k habitantes (TENDENCIA)
+  tambem nao pode ser REAL, mesmo com `FatoInternacaoResidencia` REAL
+  agora existindo.
 
 ## 3. Limitacoes estruturais das fontes (valerao mesmo com dados reais)
 
@@ -176,17 +199,19 @@
 - Paginacao com teto de 200 itens por pagina - nao testada contra volume
   real (a base DEMO atual tem poucas dezenas de linhas por tabela).
 
-## 9. Frontend / Dashboard (Fase 4)
+## 9. Frontend / Dashboard (Fase 4, mapa atualizado na Fase 5)
 
-- **Mapa de calor geografico nao implementado.** Nao ha GeoJSON oficial dos
-  municipios de Sao Paulo no repositorio, nem `latitude`/`longitude`
-  populados na base DEMO (`Municipio.latitude`/`longitude` existem no schema
-  desde a Fase 1, mas o seed sempre gravou `null`). Implementar um mapa
-  exigiria inventar coordenadas ou baixar um arquivo geografico externo sem
-  autorizacao explicita do usuario - nenhuma das duas coisas foi feita. A
-  Visao Geral mostra um painel "Mapa geografico indisponivel nesta fase" com
-  a explicacao, e usa agrupamento por Regiao de Saude como alternativa
-  pratica (dado real, sem coordenadas).
+- **Mapa geografico implementado na Fase 5** (`apps/web/components/charts/map.tsx`),
+  usando o GeoJSON real de SP (`apps/web/public/geo/sp-municipios.geojson`,
+  fonte IBGE, ver `apps/web/public/geo/README.md`) renderizado em SVG puro
+  (sem Leaflet). **O mapa mostra os 645 municipios REAIS com sua geometria
+  oficial, mas o Radar de Risco continua calculado so sobre a base DEMO** -
+  a maior parte dos municipios do mapa aparece sem classificacao de risco
+  (cor neutra, tooltip "sem indice REAL calculado") - mesmo com SIH REAL
+  agora ingerido para um municipio-competencia poder ter internacoes REAL,
+  Pressao Hospitalar Estimada REAL continua indisponivel (secao 10), entao
+  nenhum municipio REAL tem classificacao ainda. Estado honesto, nao um
+  bug. Clique navega para o detalhe do municipio.
 - **Filtros da UI limitados aos que a API suporta.** `/api/risk` (Fase 3) so
   aceita `competenciaId`/`riskConfigId`/`origem` - por isso a UI so oferece
   filtro global de competencia e origem (sincronizados com a URL). Filtro de
@@ -214,3 +239,92 @@
   projeto nao tinha tooling de teste de frontend antes da Fase 4); a
   validacao foi feita via `typecheck`, `lint`, `build` de producao e
   verificacao manual das paginas no navegador - ver `docs/fase-4-relatorio.md`.
+
+## 10. Ingestao REAL (Fase 5)
+
+- **SIH/SUS: bloqueio de ambiente contornado com Docker, dado REAL ingerido
+  para um POC controlado (segunda rodada da Fase 5).** `pysus` continua
+  impossivel de instalar no Python principal do host (Windows) - `pyreaddbc`
+  so publica wheel pre-compilado para Linux, nao para Windows, e compilar
+  do zero exigiria Microsoft Visual C++ Build Tools. Contornado com um
+  container Linux dedicado (`etl/docker/Dockerfile.sih`, `pyreaddbc` tem
+  wheel Linux pronto, confirmado nesta sessao) que roda so a ingestao SIH,
+  isolado do ambiente principal e do `docker-compose.yml` do projeto (que
+  continua exclusivo de PostgreSQL+Adminer). Resultado real: 221.117
+  registros brutos de AIH lidos (SP, competencia 2024-02), 16.020
+  oncologicos (C00-C97), 16.016 validos apos exclusoes honestas (nunca
+  adivinhadas) de faixa etaria indeterminada - agregados em 3.467 celulas
+  de `FatoInternacaoResidencia` e 1.177 de `FatoInternacaoLocal`, com
+  supressao n<5 aplicada (2.829 e 710 celulas suprimidas respectivamente).
+  Detalhes completos, decisoes metodologicas e o que NAO foi resolvido:
+  `docs/sih-methodology.md`.
+- **Catalogo do pySUS para SIH/SP nao e continuo.** No momento da ingestao,
+  152 arquivos RD/SP existiam entre 1992-01 e 2026-02 (de ate ~408 meses
+  possiveis) - o POC solicitou 2024-01/02/03 e so 2024-02 estava
+  disponivel; 2024-01 e 2024-03 foram reportados como ausentes, nunca
+  preenchidos com dado inventado. A causa da lacuna (DATASUS vs. espelho do
+  pySUS) nao foi determinada - ver `docs/sih-methodology.md` §8.
+- **Pressao Hospitalar Estimada REAL continua indisponivel mesmo com SIH
+  ingerido** - nao por limitacao de codigo, e porque as duas fontes REAL
+  que o componente precisa (`pacientesDia` do SIH, `leitosSus` do CNES)
+  nao compartilham nenhuma competencia: o SIH foi ingerido para 2024-02, o
+  CNES e um snapshot unico preso a competencia da propria ingestao (ver
+  abaixo). Confirmado em teste automatizado
+  (`packages/db/src/__tests__/fase5.test.ts`) e documentado em
+  `docs/sih-methodology.md` §9.
+- **CNES: cobertura parcial, nao o catalogo completo.**
+  `/assistencia-a-saude/hospitais-e-leitos` (capacidade de leitos) foi
+  ingerido por completo para SP (377 municipios com leito, so `UTI`/`OUTRO`
+  - ver acima). Ja `/cnes/estabelecimentos` foi ingerido como **amostra
+  limitada** (ate 500 estabelecimentos, ver `ESTABELECIMENTOS_MAX_PAGINAS`
+  em `etl/ingest_cnes.py`) - cobertura exaustiva de SP exigiria centenas de
+  requisicoes (limite real da API: 20 registros/pagina). `Estabelecimento.
+  habilitacaoOncologica` e sempre `false` para linhas REAL, com o
+  significado explicito de "nao determinado por esta fonte" (nunca
+  "confirmado sem habilitacao") - a fonte usada nao informa esse campo.
+- **Bug real da API do CNES, contornado (nao e comportamento deste
+  projeto):** a paginacao por offset de `/assistencia-a-saude/hospitais-e-
+  leitos` nao e estavel - o mesmo hospital reaparece em paginas diferentes
+  com dados identicos. Sem deduplicar, a capacidade de leitos ficaria
+  inflada em ordens de grandeza (confirmado: ~90% dos registros de SP eram
+  duplicatas na primeira ingestao). Corrigido deduplicando por nome +
+  endereco + CEP (a fonte nao devolve codigo CNES neste endpoint) - ver
+  `healthmap_etl.sources.cnes.deduplicar_hospitais` e
+  `etl/tests/test_cnes.py`. **Os totais pos-deduplicacao nao foram
+  cross-validados contra uma estatistica publicada independente** (ex.:
+  total oficial de leitos SUS na capital) - tratar como plausivel, nao como
+  numero auditado externamente, ate essa validacao existir.
+- **Populacao (IBGE, Censo 2022) nao implementada** - ver secao 2. Mesmo com
+  `FatoInternacaoResidencia` REAL agora existindo (SIH), a taxa de
+  internacao por 10k habitantes continua indisponivel para REAL porque
+  ainda falta o denominador (populacao REAL).
+- **`FatoCapacidadeLeitos` REAL e um snapshot, nao historico por
+  competencia.** A fonte CNES usada nao expoe capacidade por competencia
+  passada - o snapshot foi anexado a uma `Competencia` criada para o mes da
+  ingestao (`obter_ou_criar_competencia_atual` em `ingest_cnes.py`), que
+  por isso pode aparecer no seletor de competencia da UI sem nenhum Radar
+  calculado (comportamento esperado, ver `EmptyState` na Visao Geral).
+- **Colisão de nome entre município DEMO e município REAL (encontrada e
+  corrigida na auditoria final da Fase 5).** 8 dos 15 municípios
+  ilustrativos do seed DEMO reusam o nome exato de um município REAL
+  homônimo (Campinas, Guarulhos, Sorocaba, Franca, Barretos, Bauru,
+  Presidente Prudente, Santos) - `Municipio` não tem coluna `origem` por
+  design (só os fatos têm, ver `docs/data-model.md` #3), então as duas
+  linhas apareciam no catálogo (`/municipios`) e no cabeçalho do detalhe
+  (`/municipios/[id]`) distinguíveis apenas pelo código IBGE, sem nenhum
+  rótulo textual. Corrigido adicionando `inferOrigemMunicipio()`
+  (`apps/web/lib/risk-display.ts`) - deriva REAL/DEMO client-side do
+  prefixo do `codigoIbge7` (mesma convenção já usada por
+  `seed-demo.ts`/`ingest_geografia.py`, nenhum dado novo) - e exibindo um
+  `ProvenanceBadge` em toda linha do catálogo e um texto explícito
+  "Município ilustrativo (DEMO)" no cabeçalho do detalhe quando aplicável.
+  O mapa (`MapaSP`) não foi afetado: só renderiza os 645 `codarea` do
+  GeoJSON REAL, nunca os municípios DEMO.
+- **`calculate-risk-demo.ts` precisou ser corrigido nesta fase** para
+  filtrar explicitamente os municipios DEMO (`getMunicipios(prisma, {
+  apenasDemo: true })`) - antes da correcao, o script processava tambem os
+  645 municipios REAL (sem nenhum fato DEMO associado), o que alem de
+  degradar a performance (~300s -> ~11s apos a correcao) gravava
+  `RiskComponenteValor` com `origem: 'DEMO'` para municipios REAIS. Os
+  dados incorretos gerados antes da correcao foram apagados do banco antes
+  de fechar a Fase 5 - ver `docs/fase-5-relatorio.md`.

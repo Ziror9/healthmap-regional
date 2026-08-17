@@ -69,7 +69,11 @@ async function run(): Promise<void> {
     },
   });
 
-  const municipios = await getMunicipios(prisma);
+  // apenasDemo: este script calcula sobre a base DEMO - desde a Fase 5 a
+  // tabela Municipio tambem tem 645 municipios REAIS (geografia IBGE), que
+  // nunca tiveram fato DEMO nenhum e nao devem virar RiskScore/
+  // RiskComponenteValor com origem 'DEMO' (ver getMunicipios).
+  const municipios = await getMunicipios(prisma, { apenasDemo: true });
   const competencias = await getCompetencias(prisma);
   const riskConfigs = await getRiskConfigsFase2(prisma);
 

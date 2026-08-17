@@ -3,6 +3,7 @@
 import type { MunicipioResumoDTO, RegiaoSaudeDTO } from '@healthmap/contracts';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { ProvenanceBadge } from '@/components/domain/provenance-badge';
 import { PageContent } from '@/components/layout/page-content';
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/states/empty-state';
@@ -11,6 +12,7 @@ import { LoadingState } from '@/components/states/loading-state';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApiRequestError, getMunicipios, getRegioes } from '@/lib/api';
+import { inferOrigemMunicipio } from '@/lib/risk-display';
 
 type Estado =
   | { tipo: 'carregando' }
@@ -99,9 +101,10 @@ export default function MunicipiosPage() {
                     <TableCell>
                       <Link
                         href={`/municipios/${municipio.id}`}
-                        className="font-medium text-foreground hover:text-primary hover:underline"
+                        className="inline-flex items-center gap-2 font-medium text-foreground hover:text-primary hover:underline"
                       >
                         {municipio.nome}
+                        <ProvenanceBadge origem={inferOrigemMunicipio(municipio.codigoIbge7)} />
                       </Link>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">{municipio.codigoIbge7}</TableCell>
