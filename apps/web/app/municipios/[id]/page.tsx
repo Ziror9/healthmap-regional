@@ -1,12 +1,13 @@
 'use client';
 
-import type { IndicadorDefinicaoDTO, MunicipioDetalheDTO, RiskComponenteItemDTO } from '@healthmap/contracts';
+import type { IndicadorDefinicaoDTO, MunicipioDetalheDTO, RiscoDoMunicipioDTO, RiskComponenteItemDTO } from '@healthmap/contracts';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { LineChart, type PontoSerie } from '@/components/charts/line-chart';
 import { ConfidenceBadge } from '@/components/domain/confidence-badge';
+import { FilterBar } from '@/components/domain/filter-bar';
 import { NatureBadge } from '@/components/domain/nature-badge';
 import { ProvenanceBadge } from '@/components/domain/provenance-badge';
 import { RiskScorePanel } from '@/components/domain/risk-score-panel';
@@ -21,6 +22,7 @@ import { Select } from '@/components/ui/select';
 import { ApiRequestError, getIndicadores, getMunicipio, getRiskComponentes } from '@/lib/api';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
 import { getComponenteLabel, getMotivoIndisponibilidade, inferOrigemMunicipio } from '@/lib/risk-display';
+import { useRiskFiltersUrl } from '@/lib/use-risk-filters';
 
 type EstadoPagina =
   | { tipo: 'carregando' }
@@ -36,9 +38,9 @@ type EstadoComponentes =
 export default function MunicipioDetalhePage() {
   const params = useParams<{ id: string }>();
   const municipioId = Number(params.id);
+  const { filtros, setFiltro } = useRiskFiltersUrl();
 
   const [estado, setEstado] = useState<EstadoPagina>({ tipo: 'carregando' });
-  const [riscoIndiceSelecionado, setRiscoIndiceSelecionado] = useState(0);
   const [componentes, setComponentes] = useState<EstadoComponentes>({ tipo: 'carregando' });
 
   useEffect(() => {
@@ -49,8 +51,13 @@ export default function MunicipioDetalhePage() {
 
     let cancelado = false;
     setEstado({ tipo: 'carregando' });
-    setRiscoIndiceSelecionado(0);
 
+    // Busca sempre o historico completo (sem filtro de competencia) - a
+    // pagina precisa dele para a serie temporal E para poder dizer "existe
+    // dado em outras competencias" quando a selecionada nao tiver nada. O
+    // filtro de competencia/origem selecionado (URL) e aplicado abaixo,
+    // client-side, sobre esse historico ja calculado pela API - nao e
+    // recalculo de indice/score, so escolha de qual linha ja pronta exibir.
     Promise.all([getMunicipio(municipioId), getIndicadores({ pageSize: 200 })])
       .then(([municipioResp, indicadoresResp]) => {
         if (cancelado) return;
@@ -71,7 +78,24 @@ export default function MunicipioDetalhePage() {
     };
   }, [municipioId]);
 
-  const riscoSelecionado = estado.tipo === 'pronto' ? estado.municipio.riscos[riscoIndiceSelecionado] : undefined;
+  const competenciaSelecionadaExplicitamente = filtros.competenciaId !== undefined;
+
+  /** Riscos deste municipio que batem com a competencia/origem selecionadas na URL - nunca uma competencia diferente da pedida. */
+  const riscosNaSelecao = useMemo<RiscoDoMunicipioDTO[]>(() => {
+    if (estado.tipo !== 'pronto') return [];
+    if (!competenciaSelecionadaExplicitamente) return estado.municipio.riscos;
+    return estado.municipio.riscos.filter(
+      (r) => r.competencia.id === filtros.competenciaId && (filtros.origem === undefined || r.origem === filtros.origem),
+    );
+  }, [estado, competenciaSelecionadaExplicitamente, filtros.competenciaId, filtros.origem]);
+
+  const riscoSelecionado: RiscoDoMunicipioDTO | undefined =
+    filtros.riskConfigId !== undefined
+      ? riscosNaSelecao.find((r) => r.riskConfigId === filtros.riskConfigId)
+      : riscosNaSelecao[0];
+
+  const semDadoParaCompetenciaSelecionada =
+    estado.tipo === 'pronto' && competenciaSelecionadaExplicitamente && riscosNaSelecao.length === 0;
 
   useEffect(() => {
     if (!riscoSelecionado) return;
@@ -99,8 +123,32 @@ export default function MunicipioDetalhePage() {
       .filter((r) => r.riskConfigId === riscoSelecionado.riskConfigId)
       .slice()
       .sort((a, b) => a.competencia.ano * 12 + a.competencia.mes - (b.competencia.ano * 12 + b.competencia.mes))
-      .map((r) => ({ rotulo: formatCompetenciaLabel(r.competencia.ano, r.competencia.mes), valor: r.indice }));
+      .map((r) => ({
+        rotulo: formatCompetenciaLabel(r.competencia.ano, r.competencia.mes),
+        valor: r.indice,
+        competenciaId: r.competencia.id,
+      }));
   }, [estado, riscoSelecionado]);
+
+  const indiceDestacadoNaSerie = riscoSelecionado
+    ? serieTemporal.findIndex((p) => p.competenciaId === riscoSelecionado.competencia.id)
+    : -1;
+
+  /** Outras competencias com Radar calculado para este municipio, para o aviso "existe dado em outro periodo" - nunca exibidas automaticamente no lugar da selecionada. */
+  const competenciasDisponiveis = useMemo(() => {
+    if (estado.tipo !== 'pronto') return [];
+    const vistas = new Map<number, { id: number; label: string; origem: RiscoDoMunicipioDTO['origem'] }>();
+    for (const r of estado.municipio.riscos) {
+      if (!vistas.has(r.competencia.id)) {
+        vistas.set(r.competencia.id, {
+          id: r.competencia.id,
+          label: formatCompetenciaLabel(r.competencia.ano, r.competencia.mes),
+          origem: r.origem,
+        });
+      }
+    }
+    return [...vistas.values()].sort((a, b) => b.id - a.id);
+  }, [estado]);
 
   if (estado.tipo === 'carregando') {
     return (
@@ -137,18 +185,50 @@ export default function MunicipioDetalhePage() {
     <>
       <PageHeader
         title={municipio.nome}
+        titleBadge={<ProvenanceBadge origem={origemMunicipio} />}
         description={`${municipio.regiaoSaude.nome} · ${municipio.uf} · Código IBGE ${municipio.codigoIbge7}${
-          origemMunicipio === 'DEMO' ? ' · Município ilustrativo (DEMO) — pode ter o mesmo nome de um município real' : ''
+          origemMunicipio === 'DEMO' ? ' · Município ilustrativo — pode ter o mesmo nome de um município real' : ''
         }`}
         actions={
-          <Link href="/radar" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-            Voltar ao ranking
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <FilterBar />
+            <Link href="/radar" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+              Voltar ao ranking
+            </Link>
+          </div>
         }
       />
       <PageContent className="space-y-8">
-        {!riscoSelecionado ? (
+        {semDadoParaCompetenciaSelecionada ? (
+          <EmptyState
+            title="Sem dados disponíveis para esta competência."
+            description={
+              competenciasDisponiveis.length > 0
+                ? `Este município não tem Radar calculado no período selecionado. Existe dado em ${competenciasDisponiveis.length === 1 ? 'outra competência' : `${competenciasDisponiveis.length} outras competências`} — escolha abaixo para ver.`
+                : 'Este município não tem nenhum Radar calculado ainda, em nenhuma competência.'
+            }
+          >
+            {competenciasDisponiveis.length > 0 && (
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {competenciasDisponiveis.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setFiltro('competenciaId', c.id);
+                      setFiltro('riskConfigId', undefined);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-surface-muted"
+                  >
+                    {c.label}
+                    <ProvenanceBadge origem={c.origem} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </EmptyState>
+        ) : !riscoSelecionado ? (
           <EmptyState
             title="Nenhum RiskScore calculado para este município."
             description="O Radar ainda não produziu um índice para nenhuma competência/configuração disponível."
@@ -157,16 +237,16 @@ export default function MunicipioDetalhePage() {
           <>
             <section className="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
               <div className="space-y-3">
-                {municipio.riscos.length > 1 && (
+                {riscosNaSelecao.length > 1 && (
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                    Competência / configuração
+                    Configuração
                     <Select
-                      value={riscoIndiceSelecionado}
-                      onChange={(evento) => setRiscoIndiceSelecionado(Number(evento.target.value))}
+                      value={riscoSelecionado.riskConfigId}
+                      onChange={(evento) => setFiltro('riskConfigId', Number(evento.target.value))}
                     >
-                      {municipio.riscos.map((r, indice) => (
-                        <option key={`${r.competencia.id}-${r.riskConfigId}`} value={indice}>
-                          {formatCompetenciaLabel(r.competencia.ano, r.competencia.mes)} · config #{r.riskConfigId} · {r.origem}
+                      {riscosNaSelecao.map((r) => (
+                        <option key={r.riskConfigId} value={r.riskConfigId}>
+                          config #{r.riskConfigId} · {r.origem}
                         </option>
                       ))}
                     </Select>
@@ -176,14 +256,17 @@ export default function MunicipioDetalhePage() {
               </div>
 
               <Card className="p-5">
-                <h2 className="text-sm font-semibold text-foreground">Série temporal do índice</h2>
+                <h2 className="text-sm font-semibold text-foreground">Histórico do índice</h2>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Configuração #{riscoSelecionado.riskConfigId} · {serieTemporal.length}{' '}
                   {serieTemporal.length === 1 ? 'competência disponível' : 'competências disponíveis'}
+                  {competenciaSelecionadaExplicitamente && (
+                    <> · competência selecionada em destaque: <strong className="text-foreground">{formatCompetenciaLabel(riscoSelecionado.competencia.ano, riscoSelecionado.competencia.mes)}</strong></>
+                  )}
                 </p>
                 <div className="mt-4">
                   {serieTemporal.length > 0 ? (
-                    <LineChart pontos={serieTemporal} />
+                    <LineChart pontos={serieTemporal} indiceDestacado={indiceDestacadoNaSerie >= 0 ? indiceDestacadoNaSerie : undefined} />
                   ) : (
                     <EmptyState title="Sem histórico suficiente para série temporal." />
                   )}

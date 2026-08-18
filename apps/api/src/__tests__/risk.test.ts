@@ -34,15 +34,48 @@ interface RiskComponenteItem {
 }
 
 describe('GET /api/risk', () => {
-  it('sem filtros: resolve para a competencia mais recente e devolve itens com todos os campos exigidos', async () => {
-    const competenciaMaisRecente = await prisma.competencia.findFirst({ orderBy: { dataRef: 'desc' } });
-    expect(competenciaMaisRecente).not.toBeNull();
-    if (!competenciaMaisRecente) return;
+  it('sem filtros: resolve para a competencia mais recente QUE TEM RiskScore (nunca a mais recente por data pura) e devolve itens com todos os campos exigidos', async () => {
+    // Regressao: a competencia mais recente por dataRef pode ser so
+    // geografica/de capacidade (ex.: snapshot CNES REAL carimbado no mes da
+    // ingestao, sem nenhum RiskScore) - resolver para ela devolveria o Radar
+    // vazio por padrao mesmo havendo RiskScore calculado em competencias
+    // anteriores. A resolucao correta busca, dentre as competencias com
+    // RiskScore para o riskConfig default, a mais recente por dataRef.
+    const configOficial = await prisma.riskConfig.findFirst({ where: { oficial: true }, orderBy: { id: 'desc' } });
+    const configDefault =
+      configOficial ??
+      (await prisma.riskConfig.findFirst({ where: { componentes: { some: { ativo: true } } }, orderBy: { id: 'desc' } }));
+    expect(configDefault).not.toBeNull();
+    if (!configDefault) return;
+
+    const competenciasComScore = await prisma.riskScore.findMany({
+      where: { riskConfigId: configDefault.id },
+      select: { competenciaId: true },
+      distinct: ['competenciaId'],
+    });
+    expect(competenciasComScore.length).toBeGreaterThan(0);
+
+    const competenciaEsperada = await prisma.competencia.findFirst({
+      where: { id: { in: competenciasComScore.map((c) => c.competenciaId) } },
+      orderBy: { dataRef: 'desc' },
+    });
+    expect(competenciaEsperada).not.toBeNull();
+    if (!competenciaEsperada) return;
+
+    const competenciaMaisRecentePorData = await prisma.competencia.findFirst({ orderBy: { dataRef: 'desc' } });
+    if (competenciaMaisRecentePorData && competenciaMaisRecentePorData.id !== competenciaEsperada.id) {
+      // Confirma o cenario de regressao: existe uma competencia mais recente
+      // por data que NAO tem RiskScore - se o default resolvesse para ela, o
+      // teste abaixo (competenciaId === competenciaEsperada.id) falharia.
+      const temScoreNaMaisRecentePorData = competenciasComScore.some((c) => c.competenciaId === competenciaMaisRecentePorData.id);
+      expect(temScoreNaMaisRecentePorData).toBe(false);
+    }
 
     const res = await fetch(`${baseUrl}/api/risk`);
     expect(res.status).toBe(200);
     const body = await readJson<ApiListEnvelope<RiskScoreItem>>(res);
-    expect(body.meta.filtros?.competenciaId).toBe(competenciaMaisRecente.id);
+    expect(body.meta.filtros?.competenciaId).toBe(competenciaEsperada.id);
+    expect(body.data.length).toBeGreaterThan(0);
 
     for (const item of body.data) {
       expect(typeof item.municipio.id).toBe('number');

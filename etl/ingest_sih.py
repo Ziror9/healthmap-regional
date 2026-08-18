@@ -52,15 +52,18 @@ import psycopg  # noqa: E402
 from healthmap_etl import db, lineage, quality, sih_transform  # noqa: E402
 from healthmap_etl.sources import sih  # noqa: E402
 
-VERSAO_PIPELINE = "ingest-sih@1.0.0"
+VERSAO_PIPELINE = "ingest-sih@1.1.0"
 FONTE_SIH = "DATASUS_SIH_RD"
 UF = "SP"
 
-# POC controlado (secao 7 do pedido): mesmo periodo sugerido pelo usuario.
-# Nem toda competencia deste periodo necessariamente existe no catalogo
-# espelhado pelo pysus - o script reporta exatamente o que encontrou, nunca
-# preenche um mes ausente (ver docstring de healthmap_etl/sources/sih.py).
-COMPETENCIAS_POC: list[tuple[int, int]] = [(2024, 1), (2024, 2), (2024, 3)]
+# Fase 5.1: expande o POC original (2024-01/02/03, so 2024-02 encontrado no
+# catalogo) para o ano de 2024 inteiro. Nem toda competencia deste periodo
+# necessariamente existe no catalogo espelhado pelo pysus - o script reporta
+# exatamente o que encontrou, nunca preenche um mes ausente (ver docstring
+# de healthmap_etl/sources/sih.py). 2024-02 ja ingerido antes desta fase e
+# processado de novo aqui - o upsert por chave natural (ON CONFLICT DO
+# UPDATE) garante convergencia, nunca duplicacao.
+COMPETENCIAS_POC: list[tuple[int, int]] = [(2024, m) for m in range(1, 13)]
 
 _COLUNAS_NECESSARIAS = [
     "N_AIH",

@@ -75,6 +75,41 @@ export async function listOrigensDistintasRiskScore(
   return grupos.map((g) => g.origem);
 }
 
+export interface CompetenciaComDadosRef {
+  id: number;
+  ano: number;
+  mes: number;
+}
+
+/**
+ * Competencia mais recente (por dataRef) que tem pelo menos 1 RiskScore
+ * para o riskConfig informado - usada como default do Radar em vez da
+ * competencia mais recente por data (catalog.ts:getCompetenciaMaisRecente),
+ * que pode ser uma competencia so geografica/de capacidade sem nenhum
+ * RiskScore calculado (ex.: snapshot do CNES carimbado no mes corrente da
+ * ingestao). Sem isso, abrir o Radar sem filtro nenhum resolve para uma
+ * competencia sem dado e devolve lista vazia mesmo havendo RiskScore
+ * calculado em competencias anteriores.
+ */
+export async function getCompetenciaMaisRecenteComRiskScore(
+  prisma: PrismaClient,
+  riskConfigId: number,
+): Promise<CompetenciaComDadosRef | null> {
+  const competenciasComScore = await prisma.riskScore.findMany({
+    where: { riskConfigId },
+    select: { competenciaId: true },
+    distinct: ['competenciaId'],
+  });
+  if (competenciasComScore.length === 0) return null;
+
+  const competencia = await prisma.competencia.findFirst({
+    where: { id: { in: competenciasComScore.map((c) => c.competenciaId) } },
+    orderBy: { dataRef: 'desc' },
+    select: { id: true, ano: true, mes: true },
+  });
+  return competencia;
+}
+
 export interface RiskScoreListItem {
   municipioId: number;
   municipioNome: string;

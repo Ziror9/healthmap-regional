@@ -1,8 +1,10 @@
 # Metodologia da ingestão SIH/SUS
 
-> Estado: implementado (segunda rodada da Fase 5) para um período de prova de
-> conceito (POC) controlado. Ver [`docs/fase-5-relatorio.md`](fase-5-relatorio.md)
-> para os números exatos ingeridos e [`docs/known-limitations.md`](known-limitations.md)
+> Estado: implementado (segunda rodada da Fase 5, POC de 1 competência;
+> expandido na Fase 5.1 para o catálogo disponível do ano de 2024 inteiro —
+> ver §11). Ver [`docs/fase-5-relatorio.md`](fase-5-relatorio.md) e
+> [`docs/fase-5.1-relatorio.md`](fase-5.1-relatorio.md) para os números
+> exatos ingeridos e [`docs/known-limitations.md`](known-limitations.md)
 > §10 para o que continua pendente.
 
 ## 1. Fonte
@@ -122,26 +124,28 @@ implementação, 152 arquivos existiam para SP/RD entre 1992-01 e 2026-02, de
 até ~408 meses possíveis no período — várias lacunas (ex.: nada entre
 2022-08 e 2023-04). **A causa (lacuna real de publicação do DATASUS vs.
 espelho do pySUS ainda incompleto) não foi determinada** — não deve ser
-lida como "o DATASUS não publicou esses meses". O POC solicitou
-2024-01/02/03; só 2024-02 estava disponível no catálogo no momento da
-ingestão — 2024-01 e 2024-03 foram reportados como ausentes, não
-preenchidos com dado inventado ou copiado de outro mês.
+lida como "o DATASUS não publicou esses meses". Confirmado ao expandir para
+o ano de 2024 inteiro na Fase 5.1 (§11): de 12 competências solicitadas,
+apenas 4 (2024-02, 06, 08, 12) estavam no catálogo — as demais foram
+reportadas como ausentes, nunca preenchidas com dado inventado ou copiado
+de outro mês.
 
 ## 9. Por que o Radar de Risco continua sem nenhuma competência REAL
 
 `PRESSAO_HOSPITALAR_ESTIMADA` precisa de dois insumos REAL na **mesma
-competência**: `pacientesDia` (agora disponível, via SIH, para 2024-02) e
-`leitosSus` (via CNES, mas capturado como um **snapshot único** sem
-histórico por competência — anexado à competência do momento da ingestão
-do CNES, não 2024-02). Verificado diretamente no banco: `FatoCapacidadeLeitos`
-REAL só existe para a competência do snapshot CNES; 0 linhas para 2024-02.
-Combinar o snapshot de leitos (de outra competência) com internações de
-2024-02 seria uma premissa temporal não documentada, presa a este projeto -
-não foi feita. Por isso `PRESSAO_HOSPITALAR_ESTIMADA` continua indisponível
-para todo município REAL nesta fase, mesmo com SIH e CNES ambos parcialmente
-ingeridos. Isso deixa de ser verdade quando (a) o SIH for ingerido para a
-mesma competência do snapshot de leitos, ou (b) o CNES ganhar histórico de
-leitos por competência.
+competência**: `pacientesDia` (agora disponível, via SIH, para 4
+competências de 2024 — ver §11) e `leitosSus` (via CNES, mas capturado como
+um **snapshot único** sem histórico por competência — anexado à competência
+do momento da ingestão do CNES, hoje 2026-08). Verificado diretamente no
+banco: `FatoCapacidadeLeitos` REAL só existe para a competência do snapshot
+CNES; 0 linhas para qualquer competência de 2024. Combinar o snapshot de
+leitos (de outra competência) com internações de 2024 seria uma premissa
+temporal não documentada, presa a este projeto - não foi feita. Por isso
+`PRESSAO_HOSPITALAR_ESTIMADA` continua indisponível para todo município REAL
+nesta fase, mesmo com SIH cobrindo agora 4 competências e CNES ingerido.
+Isso deixa de ser verdade quando (a) o SIH for ingerido para a mesma
+competência do snapshot de leitos, ou (b) o CNES ganhar histórico de leitos
+por competência — nenhuma das duas fontes hoje permite isso (ver §11.2).
 
 ## 10. O que NÃO foi resolvido por esta implementação
 
@@ -151,10 +155,83 @@ leitos por competência.
 - População REAL (IBGE Censo 2022) — sem ela, taxa de internação por 10k
   habitantes também não pode ser REAL, mesmo com `FatoInternacaoResidencia`
   REAL agora existindo.
-- Cobertura completa do SIH (o POC cobre 1 competência; expandir exige só
-  rodar `etl/ingest_sih.py` com mais competências da lista
-  `COMPETENCIAS_POC`, mas cada uma precisa existir no catálogo espelhado -
-  ver seção 8).
+- Cobertura completa do SIH (a Fase 5.1 ampliou de 1 para 4 competências REAL
+  de 2024, tudo que o catálogo espelhado disponibiliza para o ano - ver §11;
+  cobrir outros anos exige só rodar `etl/ingest_sih.py` com mais
+  competências em `COMPETENCIAS_POC`, cada uma sujeita à mesma checagem de
+  disponibilidade no catálogo, ver §8).
+- Sobreposição temporal SIH × CNES (nenhuma competência de 2024 tem CNES
+  REAL — ver matriz em §11.2). Sem histórico de leitos por competência na
+  fonte CNES/DEMAS, isso não é resolvível só ingerindo mais meses de SIH.
 
 Nenhuma dessas lacunas foi resolvida por conta própria nesta implementação
 — continuam pendências explícitas.
+
+## 11. Fase 5.1 — expansão para o ano de 2024
+
+Repetição do mesmo pipeline (`etl/ingest_sih.py`, mesmo container Linux,
+mesmas regras de transformação/supressão/proveniência das seções 1-7) para
+as 12 competências de 2024, em vez das 3 do POC original. Nenhuma regra
+metodológica mudou - só o intervalo de competências solicitadas
+(`COMPETENCIAS_POC`, agora `[(2024, 1), ..., (2024, 12)]`).
+
+### 11.1 Cobertura por competência
+
+| Competência | No catálogo pySUS | Registros brutos | Oncológicos (C00-C97) | Válidos p/ agregação | Células `FatoInternacaoResidencia` | Células `FatoInternacaoLocal` | Status da execução |
+|---|---|---|---|---|---|---|---|
+| 2024-01 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-02 | ✅ | 221.117 | 16.020 | 16.016 | 3.467 | 1.177 | PARCIAL¹ |
+| 2024-03 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-04 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-05 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-06 | ✅ | 240.552 | 16.279 | 16.277 | 3.601 | 1.173 | PARCIAL¹ |
+| 2024-07 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-08 | ✅ | 246.085 | 16.914 | 16.914 | 3.703 | 1.211 | SUCESSO |
+| 2024-09 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-10 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-11 | ❌ ausente | — | — | — | — | — | não processada |
+| 2024-12 | ✅ | 225.756 | 15.433 | 15.427 | 3.461 | 1.182 | PARCIAL¹ |
+
+¹ `PARCIAL` é o status esperado quando há qualquer rejeição pré-agregação
+(idade não classificável, célula com valor inválido) — não indica erro do
+pipeline; é a mesma semântica já usada desde a Fase 5 original. As 8
+competências ausentes não geraram `IngestaoExecucao` nenhuma (nunca chegam
+a existir como tentativa - o script pula antes de qualquer escrita, ver
+`etl/ingest_sih.py`).
+
+Números confirmados diretamente no banco após a execução (não reproduzidos
+de memória): `SELECT origem, "competenciaId", count(*), sum(internacoes)
+FROM gold."FatoInternacaoResidencia"/"FatoInternacaoLocal" GROUP BY ...`.
+
+### 11.2 Matriz de sobreposição SIH × CNES
+
+| Competência | SIH REAL | CNES REAL | Sobreposição | Pressão Hospitalar REAL possível |
+|---|---|---|---|---|
+| 2024-01 | ❌ | ❌ | ❌ | ❌ |
+| 2024-02 | ✅ | ❌ | ❌ | ❌ |
+| 2024-03 | ❌ | ❌ | ❌ | ❌ |
+| 2024-04 | ❌ | ❌ | ❌ | ❌ |
+| 2024-05 | ❌ | ❌ | ❌ | ❌ |
+| 2024-06 | ✅ | ❌ | ❌ | ❌ |
+| 2024-07 | ❌ | ❌ | ❌ | ❌ |
+| 2024-08 | ✅ | ❌ | ❌ | ❌ |
+| 2024-09 | ❌ | ❌ | ❌ | ❌ |
+| 2024-10 | ❌ | ❌ | ❌ | ❌ |
+| 2024-11 | ❌ | ❌ | ❌ | ❌ |
+| 2024-12 | ✅ | ❌ | ❌ | ❌ |
+
+**Nenhuma competência de 2024 tem CNES REAL**, por construção da fonte, não
+por lacuna de ingestão: a API CNES/DEMAS usada por `etl/ingest_cnes.py` não
+expõe histórico por competência — devolve só o estado atual da capacidade de
+leitos, sempre gravado na competência do mês em que o ETL roda (hoje
+2026-08, `obter_ou_criar_competencia_atual()` em `etl/ingest_cnes.py`).
+Reingerir CNES não muda isso: rodar o script de novo hoje ainda gravaria em
+2026-08, não em nenhum mês de 2024. Por isso a Pressão Hospitalar Estimada
+REAL segue indisponível para as 4 competências SIH ingeridas nesta fase -
+**não é um workaround adiado, é uma limitação estrutural da fonte CNES/DEMAS
+disponível**, que só deixa de valer se (a) o Ministério da Saúde publicar
+histórico de leitos por competência nessa API, ou (b) uma fonte REAL
+alternativa de capacidade hospitalar histórica for adotada. Nenhuma
+aproximação temporal (usar o snapshot de 2026-08 como proxy de 2024) foi
+feita — produziria um número REAL com premissa não validada, o que este
+projeto não faz (CLAUDE.md, "nunca invente dados").

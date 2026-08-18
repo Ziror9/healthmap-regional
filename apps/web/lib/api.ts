@@ -91,6 +91,35 @@ export async function getMunicipios(
   return fetchApi(`/api/municipios${toQueryString(params)}`);
 }
 
+const MUNICIPIOS_PAGE_SIZE_MAXIMO = 200;
+
+/**
+ * Todos os municipios do catalogo, paginando por baixo dos panos.
+ *
+ * A API limita `pageSize` a 200 (teto deliberado contra paginas
+ * ilimitadas, ver packages/contracts/src/pagination.ts) - mas o catalogo
+ * geografico tem 660 municipios (645 REAL da Fase 5 + 15 DEMO), acima
+ * desse teto. Paginas que precisam do catalogo INTEIRO (mapa, agrupamento
+ * por regiao, busca/listagem de municipios) nao podem chamar getMunicipios
+ * com pageSize:200 e tratar o resultado como se fosse tudo - isso corta os
+ * municipios REAL que vem depois na ordenacao alfabetica (`orderBy: nome`)
+ * silenciosamente, sem erro. Esta funcao busca todas as paginas e junta.
+ */
+export async function getTodosMunicipios(
+  params: { regiaoSaudeId?: number } = {},
+): Promise<MunicipioResumoDTO[]> {
+  const primeira = await getMunicipios({ ...params, page: 1, pageSize: MUNICIPIOS_PAGE_SIZE_MAXIMO });
+  const { totalPages } = primeira.meta.pagination;
+  if (totalPages <= 1) return primeira.data;
+
+  const demaisPaginas = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, indice) =>
+      getMunicipios({ ...params, page: indice + 2, pageSize: MUNICIPIOS_PAGE_SIZE_MAXIMO }),
+    ),
+  );
+  return [primeira, ...demaisPaginas].flatMap((resposta) => resposta.data);
+}
+
 export async function getMunicipio(
   municipioId: number,
   params: { competenciaId?: number; riskConfigId?: number; ano?: number } = {},

@@ -82,4 +82,50 @@ describe('GET /api/municipios/:municipioId', () => {
     const body = await readJson<ApiErrorEnvelope>(res);
     expect(body.error.code).toBe('VALIDATION_ERROR');
   });
+
+  it('regressao: competenciaId explicito nunca retorna risco de outra competencia (nunca troca silenciosamente)', async () => {
+    // Municipio com RiskScore em mais de uma competencia - precisa existir
+    // pelo menos um para o teste ser significativo (senao a asserção de
+    // "todos os itens batem" seria vacuamente verdadeira sobre 0 itens).
+    const scoreExistente = await prisma.riskScore.findFirst();
+    expect(scoreExistente).not.toBeNull();
+    if (!scoreExistente) return;
+
+    const res = await fetch(
+      `${baseUrl}/api/municipios/${scoreExistente.municipioId}?competenciaId=${scoreExistente.competenciaId}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await readJson<ApiItemEnvelope<MunicipioDetalhe & { riscos: { competencia: { id: number } }[] }>>(res);
+    expect(body.data.riscos.length).toBeGreaterThan(0);
+    for (const r of body.data.riscos) expect(r.competencia.id).toBe(scoreExistente.competenciaId);
+  });
+
+  it('regressao: competencia sem RiskScore para o municipio -> riscos vazio, nunca substituido por outra competencia', async () => {
+    // Competencia que existe no catalogo mas que este municipio especifico
+    // nao tem RiskScore (ex.: uma competencia so-geografica/de capacidade,
+    // ou uma competencia REAL do SIH quando o municipio so tem Radar DEMO).
+    // Escolhida dinamicamente: qualquer competencia SEM nenhum RiskScore
+    // para o municipio de scoreExistente prova o caso sem depender de
+    // valores fixos de id (que mudam conforme a base evolui).
+    const scoreExistente = await prisma.riskScore.findFirst();
+    expect(scoreExistente).not.toBeNull();
+    if (!scoreExistente) return;
+
+    const competenciasComScoreDoMunicipio = await prisma.riskScore.findMany({
+      where: { municipioId: scoreExistente.municipioId },
+      select: { competenciaId: true },
+    });
+    const idsComScore = new Set(competenciasComScoreDoMunicipio.map((c) => c.competenciaId));
+    const competenciaSemScore = await prisma.competencia.findFirst({
+      where: { id: { notIn: [...idsComScore] } },
+    });
+    if (!competenciaSemScore) return; // toda competencia cadastrada tem score para este municipio - nada a provar aqui
+
+    const res = await fetch(
+      `${baseUrl}/api/municipios/${scoreExistente.municipioId}?competenciaId=${competenciaSemScore.id}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await readJson<ApiItemEnvelope<MunicipioDetalhe>>(res);
+    expect(body.data.riscos).toEqual([]);
+  });
 });

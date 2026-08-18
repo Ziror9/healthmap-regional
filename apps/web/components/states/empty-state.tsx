@@ -1,4 +1,5 @@
 import { Inbox, type LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export function EmptyState({
@@ -6,11 +7,13 @@ export function EmptyState({
   description,
   icon: Icon = Inbox,
   className,
+  children,
 }: {
   title?: string;
   description?: string;
   icon?: LucideIcon;
   className?: string;
+  children?: ReactNode;
 }) {
   return (
     <div
@@ -22,6 +25,7 @@ export function EmptyState({
       <Icon className="h-6 w-6 text-muted-foreground" aria-hidden />
       <p className="text-sm font-medium text-foreground">{title}</p>
       {description && <p className="max-w-sm text-xs text-muted-foreground">{description}</p>}
+      {children}
     </div>
   );
 }

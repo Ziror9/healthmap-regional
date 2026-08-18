@@ -8,6 +8,8 @@ export interface PontoSerie {
   /** Rotulo do eixo X (ex.: "jan/2025"). */
   rotulo: string;
   valor: number;
+  /** Identificador da competencia representada, se aplicavel - usado por quem consome o componente para localizar o ponto em destaque, nao pelo grafico em si. */
+  competenciaId?: number;
 }
 
 const LARGURA = 600;
@@ -22,11 +24,14 @@ export function LineChart({
   formatarValor = (valor: number) => valor.toFixed(2),
   valorMinimo,
   valorMaximo,
+  indiceDestacado,
 }: {
   pontos: PontoSerie[];
   formatarValor?: (valor: number) => string;
   valorMinimo?: number;
   valorMaximo?: number;
+  /** Indice do ponto correspondente a competencia atualmente selecionada (fora do historico completo) - recebe destaque visual para nao ser confundido com "a competencia da janela do grafico". */
+  indiceDestacado?: number;
 }) {
   if (pontos.length === 0) return null;
 
@@ -61,11 +66,21 @@ export function LineChart({
 
       <path d={caminho} fill="none" className="stroke-primary" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
-      {pontos.map((ponto, indice) => (
-        <circle key={ponto.rotulo} cx={x(indice)} cy={y(ponto.valor)} r={4} className="fill-primary stroke-surface" strokeWidth={2}>
-          <title>{`${ponto.rotulo}: ${formatarValor(ponto.valor)}`}</title>
-        </circle>
-      ))}
+      {pontos.map((ponto, indice) => {
+        const destacado = indice === indiceDestacado;
+        return (
+          <circle
+            key={ponto.rotulo}
+            cx={x(indice)}
+            cy={y(ponto.valor)}
+            r={destacado ? 6 : 4}
+            className={destacado ? 'fill-accent stroke-surface' : 'fill-primary stroke-surface'}
+            strokeWidth={2}
+          >
+            <title>{`${ponto.rotulo}: ${formatarValor(ponto.valor)}${destacado ? ' (competência selecionada)' : ''}`}</title>
+          </circle>
+        );
+      })}
 
       {pontos.map((ponto, indice) => (
         <text key={ponto.rotulo} x={x(indice)} y={ALTURA - 8} textAnchor="middle" className="fill-muted-foreground text-[9px]">

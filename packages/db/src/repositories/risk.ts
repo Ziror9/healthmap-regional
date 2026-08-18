@@ -76,9 +76,27 @@ export async function getMunicipios(prisma: PrismaClient, opcoes?: { apenasDemo?
   });
 }
 
-export async function getCompetencias(prisma: PrismaClient): Promise<CompetenciaRef[]> {
+export async function getCompetencias(prisma: PrismaClient, opcoes?: { apenasDemo?: boolean }): Promise<CompetenciaRef[]> {
+  // Mesmo raciocinio de getMunicipios({apenasDemo}) acima: Competencia e
+  // dimensao compartilhada, sem coluna origem propria - desde a Fase 5, ela
+  // tambem acumula competencias criadas so por ingestao REAL (snapshot do
+  // CNES, meses do SIH), que nunca tiveram fato DEMO nenhum. Sem este
+  // filtro, calculate-risk-demo.ts (que cruza TODAS as competencias da
+  // tabela com os municipios DEMO) grava RiskComponenteValor com
+  // origem='DEMO' para competencias inteiramente REAL - achado e corrigido
+  // na Fase 5.1 (pacientes-dia/leitos dessas competencias nunca existiram
+  // para municipio DEMO nenhum, entao os registros ficariam sempre
+  // disponivel=false, mas ainda seriam linhas erradas no banco).
   return prisma.competencia.findMany({
     select: { id: true, ano: true, mes: true, diasNoMes: true },
+    where: opcoes?.apenasDemo
+      ? {
+          OR: [
+            { fatosInternacaoResidencia: { some: { origem: 'DEMO' } } },
+            { fatosInternacaoLocal: { some: { origem: 'DEMO' } } },
+          ],
+        }
+      : undefined,
     orderBy: { dataRef: 'asc' },
   });
 }

@@ -18,12 +18,14 @@
   RBAC efetivo** - ver secao 7. Nao devem ser expostos fora de ambiente de
   desenvolvimento.
 - **O Radar de Risco continua parcial e continua calculado so sobre a base
-  DEMO.** A ingestao REAL da Fase 5 trouxe geografia, capacidade de leitos
-  e (numa segunda rodada) internacoes oncologicas do SIH/SUS para uma
-  competencia de prova de conceito (2024-02) - mas Pressao Hospitalar
+  DEMO.** A ingestao REAL da Fase 5 trouxe geografia e capacidade de leitos;
+  a Fase 5 (segunda rodada) e a Fase 5.1 trouxeram internacoes oncologicas
+  do SIH/SUS REAL para 4 competencias de 2024 (02, 06, 08, 12 - todas que o
+  catalogo espelhado disponibiliza para o ano) - mas Pressao Hospitalar
   Estimada REAL continua indisponivel porque as duas fontes REAL que ela
-  precisa (SIH e CNES) nao tem nenhuma competencia em comum ainda (motivo
-  completo: secao 10, `docs/sih-methodology.md` #9). Ver secoes 5 e 10.
+  precisa (SIH e CNES) nao tem nenhuma competencia em comum: a fonte CNES
+  usada nao tem historico por competencia (motivo completo: secao 10,
+  `docs/sih-methodology.md` §9 e §11.2). Ver secoes 5 e 10.
 
 ## 2. Dados
 
@@ -44,8 +46,8 @@
   (media dos vertices do poligono do IBGE, nao o centroide de area exato) -
   suficiente para o mapa da Visao Geral, documentado como aproximacao.
 - **Taxonomias provisorias, nao validadas contra a fonte real (continuam
-  pendentes - a cobertura SIH ingerida ate agora e so um POC de 1
-  competencia, insuficiente para validar isso em definitivo):**
+  pendentes - a cobertura SIH ingerida ate agora cobre 4 competencias de um
+  unico ano, insuficiente para validar isso em definitivo):**
   - `FaixaEtaria` usa corte decenal (`FX_00_09` ... `FX_80_MAIS`). O SIH-RD
     real usa `COD_IDADE` (dias/meses/anos) + `IDADE`, mapeado para o corte
     decenal em `healthmap_etl/sih_transform.py` - ver `docs/sih-methodology.md`
@@ -187,12 +189,22 @@
   original da Fase 3).
 - **Resolucao de filtros quando omitidos** (documentada em
   `docs/fase-3-relatorio.md` e no codigo de
-  `apps/api/src/services/risk.service.ts`): competencia mais recente por
-  `dataRef`; `RiskConfig` oficial se existir, senao a mais recente com
-  componentes ativos (nenhuma `RiskConfig` e oficial em nenhum ambiente
-  conhecido nesta fase); origem nao filtrada por padrao, mas a API responde
-  `409 ORIGEM_AMBIGUA` se mais de uma origem estiver presente no resultado -
-  nunca mistura REAL e DEMO silenciosamente numa mesma lista.
+  `apps/api/src/services/risk.service.ts`, corrigida na auditoria de
+  Fase 5/5.1): `RiskConfig` oficial se existir, senao a mais recente com
+  componentes ativos (resolvida ANTES da competencia, ja que o default de
+  competencia depende dela); competencia mais recente por `dataRef` **que
+  tenha RiskScore** para o riskConfig resolvido - nunca a mais recente por
+  data pura, porque uma competencia pode existir so por causa de uma
+  ingestao geografica/de capacidade (ex.: o snapshot do CNES, sempre
+  carimbado no mes corrente da ingestao) sem nenhum RiskScore, o que fazia
+  o Radar abrir vazio por padrao antes da correcao (ver
+  `apps/api/src/__tests__/risk.test.ts`, teste de regressao). Quando o
+  cliente informa `competenciaId` explicitamente, a API nunca troca por
+  outra - devolve lista/`data:null` vazios se aquela competencia nao tiver
+  o dado pedido (ver tambem `apps/api/src/__tests__/municipios.test.ts`).
+  Origem nao filtrada por padrao, mas a API responde `409 ORIGEM_AMBIGUA` se
+  mais de uma origem estiver presente no resultado - nunca mistura REAL e
+  DEMO silenciosamente numa mesma lista.
 - **Nenhum endpoint de escrita/administracao de `RiskConfig`** foi criado -
   toda `RiskConfig` usada pela API vem do que ja foi semeado/calculado pelas
   Fases 1/2.
@@ -214,12 +226,24 @@
   bug. Clique navega para o detalhe do municipio.
 - **Filtros da UI limitados aos que a API suporta.** `/api/risk` (Fase 3) so
   aceita `competenciaId`/`riskConfigId`/`origem` - por isso a UI so oferece
-  filtro global de competencia e origem (sincronizados com a URL). Filtro de
-  classificacao (Radar) e de regiao/busca (Municipios) sao filtros
-  client-side sobre a lista ja carregada da API, nao nova consulta ao
-  servidor. Nao ha filtro de sexo, faixa etaria ou municipio no Radar porque
-  a API nao os expoe - criar um filtro decorativo que nao muda o dado
-  buscado foi evitado deliberadamente.
+  filtro global de competencia e origem (sincronizados com a URL, via
+  `useRiskFiltersUrl`/`FilterBar`, usado em `/`, `/radar` e
+  `/municipios/[id]`). Filtro de classificacao (Radar) e de regiao/busca
+  (Municipios) sao filtros client-side sobre a lista ja carregada da API,
+  nao nova consulta ao servidor. Nao ha filtro de sexo, faixa etaria ou
+  municipio no Radar porque a API nao os expoe - criar um filtro decorativo
+  que nao muda o dado buscado foi evitado deliberadamente.
+- **Propagacao de competencia entre paginas (corrigido na Fase 5.1).** Ate a
+  Fase 5.1, `/municipios/[id]` ignorava a competencia selecionada em
+  `/`/`/radar` e sempre mostrava o RiskScore mais recente do municipio -
+  clicar num municipio filtrado por uma competencia especifica perdia esse
+  filtro silenciosamente. Corrigido: os links para o detalhe do municipio
+  (`apps/web/lib/use-risk-filters.ts:buildMunicipioHref`) carregam a
+  competencia/riskConfig/origem da pagina de origem, e o detalhe do
+  municipio le esses parametros da URL. Quando a competencia selecionada
+  nao tem RiskScore para aquele municipio especifico, a pagina mostra
+  "Sem dados disponiveis para esta competencia" (nunca substitui pela mais
+  recente do municipio) e lista as competencias em que ha dado, se houver.
 - **Sem seletor de RiskConfig na UI.** A Fase 3 nao expoe um catalogo de
   configuracoes do Radar disponiveis (`/api/risk-configs` nao existe);
   construir um seletor exigiria hardcodar IDs de configuracao no frontend,
@@ -243,35 +267,35 @@
 ## 10. Ingestao REAL (Fase 5)
 
 - **SIH/SUS: bloqueio de ambiente contornado com Docker, dado REAL ingerido
-  para um POC controlado (segunda rodada da Fase 5).** `pysus` continua
-  impossivel de instalar no Python principal do host (Windows) - `pyreaddbc`
-  so publica wheel pre-compilado para Linux, nao para Windows, e compilar
-  do zero exigiria Microsoft Visual C++ Build Tools. Contornado com um
-  container Linux dedicado (`etl/docker/Dockerfile.sih`, `pyreaddbc` tem
-  wheel Linux pronto, confirmado nesta sessao) que roda so a ingestao SIH,
-  isolado do ambiente principal e do `docker-compose.yml` do projeto (que
-  continua exclusivo de PostgreSQL+Adminer). Resultado real: 221.117
-  registros brutos de AIH lidos (SP, competencia 2024-02), 16.020
-  oncologicos (C00-C97), 16.016 validos apos exclusoes honestas (nunca
-  adivinhadas) de faixa etaria indeterminada - agregados em 3.467 celulas
-  de `FatoInternacaoResidencia` e 1.177 de `FatoInternacaoLocal`, com
-  supressao n<5 aplicada (2.829 e 710 celulas suprimidas respectivamente).
-  Detalhes completos, decisoes metodologicas e o que NAO foi resolvido:
-  `docs/sih-methodology.md`.
-- **Catalogo do pySUS para SIH/SP nao e continuo.** No momento da ingestao,
-  152 arquivos RD/SP existiam entre 1992-01 e 2026-02 (de ate ~408 meses
-  possiveis) - o POC solicitou 2024-01/02/03 e so 2024-02 estava
-  disponivel; 2024-01 e 2024-03 foram reportados como ausentes, nunca
-  preenchidos com dado inventado. A causa da lacuna (DATASUS vs. espelho do
-  pySUS) nao foi determinada - ver `docs/sih-methodology.md` §8.
-- **Pressao Hospitalar Estimada REAL continua indisponivel mesmo com SIH
-  ingerido** - nao por limitacao de codigo, e porque as duas fontes REAL
-  que o componente precisa (`pacientesDia` do SIH, `leitosSus` do CNES)
-  nao compartilham nenhuma competencia: o SIH foi ingerido para 2024-02, o
-  CNES e um snapshot unico preso a competencia da propria ingestao (ver
-  abaixo). Confirmado em teste automatizado
-  (`packages/db/src/__tests__/fase5.test.ts`) e documentado em
-  `docs/sih-methodology.md` §9.
+  para 4 competencias de 2024 (segunda rodada da Fase 5 + expansao na Fase
+  5.1).** `pysus` continua impossivel de instalar no Python principal do
+  host (Windows) - `pyreaddbc` so publica wheel pre-compilado para Linux,
+  nao para Windows, e compilar do zero exigiria Microsoft Visual C++ Build
+  Tools. Contornado com um container Linux dedicado
+  (`etl/docker/Dockerfile.sih`, `pyreaddbc` tem wheel Linux pronto) que roda
+  so a ingestao SIH, isolado do ambiente principal e do `docker-compose.yml`
+  do projeto (que continua exclusivo de PostgreSQL+Adminer). Resultado real
+  apos a Fase 5.1 (2024 inteiro solicitado, catalogo so tinha 4 dos 12
+  meses): 2024-02 (221.117 registros brutos, 16.016 validos, 3.467/1.177
+  celulas), 2024-06 (240.552 brutos, 16.277 validos, 3.601/1.173 celulas),
+  2024-08 (246.085 brutos, 16.914 validos, 3.703/1.211 celulas), 2024-12
+  (225.756 brutos, 15.427 validos, 3.461/1.182 celulas) - todos com
+  supressao n<5 aplicada e idempotencia confirmada (reexecucao completa nao
+  altera nenhuma contagem/soma existente). Detalhes completos, cobertura
+  por competencia e decisoes metodologicas: `docs/sih-methodology.md` §11.
+- **Catalogo do pySUS para SIH/SP nao e continuo.** Confirmado ao expandir
+  para o ano de 2024 inteiro na Fase 5.1: de 12 competencias solicitadas,
+  so 4 (02, 06, 08, 12) estavam no catalogo espelhado - as demais (01, 03,
+  04, 05, 07, 09, 10, 11) foram reportadas como ausentes, nunca preenchidas
+  com dado inventado. A causa da lacuna (DATASUS vs. espelho do pySUS) nao
+  foi determinada - ver `docs/sih-methodology.md` §8.
+- **Pressao Hospitalar Estimada REAL continua indisponivel para as 4
+  competencias SIH ingeridas** - nao por limitacao de codigo, e porque as
+  duas fontes REAL que o componente precisa (`pacientesDia` do SIH,
+  `leitosSus` do CNES) nao compartilham nenhuma competencia: a fonte CNES
+  usada (`etl/ingest_cnes.py`) nao tem historico por competencia, so um
+  snapshot preso ao mes da propria ingestao (2026-08). Matriz completa de
+  sobreposicao por competencia: `docs/sih-methodology.md` §11.2.
 - **CNES: cobertura parcial, nao o catalogo completo.**
   `/assistencia-a-saude/hospitais-e-leitos` (capacidade de leitos) foi
   ingerido por completo para SP (377 municipios com leito, so `UTI`/`OUTRO`

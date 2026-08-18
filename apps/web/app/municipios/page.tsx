@@ -11,7 +11,7 @@ import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ApiRequestError, getMunicipios, getRegioes } from '@/lib/api';
+import { ApiRequestError, getRegioes, getTodosMunicipios } from '@/lib/api';
 import { inferOrigemMunicipio } from '@/lib/risk-display';
 
 type Estado =
@@ -26,9 +26,9 @@ export default function MunicipiosPage() {
 
   useEffect(() => {
     let cancelado = false;
-    Promise.all([getMunicipios({ pageSize: 200 }), getRegioes({ pageSize: 200 })])
-      .then(([municipiosResp, regioesResp]) => {
-        if (!cancelado) setEstado({ tipo: 'pronto', municipios: municipiosResp.data, regioes: regioesResp.data });
+    Promise.all([getTodosMunicipios(), getRegioes({ pageSize: 200 })])
+      .then(([municipios, regioesResp]) => {
+        if (!cancelado) setEstado({ tipo: 'pronto', municipios, regioes: regioesResp.data });
       })
       .catch((erro: unknown) => {
         if (cancelado) return;

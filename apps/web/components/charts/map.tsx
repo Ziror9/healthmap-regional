@@ -117,7 +117,14 @@ function geometriaParaPath(geometry: GeoJsonFeature['geometry'], latMedia: numbe
   return geometry.coordinates.flatMap((poligono) => poligono.map((anel) => anelParaPath(anel, latMedia, bounds))).join(' ');
 }
 
-export function MapaSP({ municipios }: { municipios: MunicipioNoMapa[] }) {
+export function MapaSP({
+  municipios,
+  buildHref,
+}: {
+  municipios: MunicipioNoMapa[];
+  /** Constroi o href do detalhe do municipio preservando a competencia/origem selecionadas. Default: sem filtro. */
+  buildHref?: (municipioId: number) => string;
+}) {
   const router = useRouter();
   const [geo, setGeo] = useState<GeoJsonCollection | null>(null);
   const [erro, setErro] = useState(false);
@@ -204,7 +211,7 @@ export function MapaSP({ municipios }: { municipios: MunicipioNoMapa[] }) {
               onMouseEnter={() => setHoverCodigo(codigo)}
               onMouseLeave={() => setHoverCodigo((atual) => (atual === codigo ? null : atual))}
               onClick={() => {
-                if (municipio) router.push(`/municipios/${municipio.id}`);
+                if (municipio) router.push(buildHref ? buildHref(municipio.id) : `/municipios/${municipio.id}`);
               }}
             >
               <title>

@@ -72,9 +72,13 @@ async function run(): Promise<void> {
   // apenasDemo: este script calcula sobre a base DEMO - desde a Fase 5 a
   // tabela Municipio tambem tem 645 municipios REAIS (geografia IBGE), que
   // nunca tiveram fato DEMO nenhum e nao devem virar RiskScore/
-  // RiskComponenteValor com origem 'DEMO' (ver getMunicipios).
+  // RiskComponenteValor com origem 'DEMO' (ver getMunicipios). Mesmo
+  // raciocinio para Competencia: ingestoes REAL (CNES, SIH) criam
+  // competencias que nunca tiveram fato DEMO nenhum - sem o filtro, o loop
+  // abaixo gravaria linhas 'DEMO' (sempre indisponivel=false) para
+  // competencias inteiramente REAL (achado na Fase 5.1).
   const municipios = await getMunicipios(prisma, { apenasDemo: true });
-  const competencias = await getCompetencias(prisma);
+  const competencias = await getCompetencias(prisma, { apenasDemo: true });
   const riskConfigs = await getRiskConfigsFase2(prisma);
 
   if (riskConfigs.length === 0) {

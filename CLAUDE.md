@@ -16,37 +16,46 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5 (Dados reais) concluida, parcialmente.** Schema,
-migrations, base DEMO, motor de risco (`packages/risk`), API REST
-somente-leitura (`apps/api`) e um dashboard navegavel (`apps/web`) existem e
-estao validados. Do indice, so `PRESSAO_HOSPITALAR_ESTIMADA` produz valor -
-os componentes `TENDENCIA` e `SEVERIDADE` ficam estruturalmente prontos mas
-sempre indisponiveis por lacunas metodologicas explicitas (nao
-implementadas, nao inventadas). O frontend consome a API (Visao Geral,
-Radar de Risco, Municipios, detalhe de municipio, Metodologia, Sobre) com
-identidade visual propria (tema claro, azul institucional, escala de risco
-nunca so cor) - publico, sem autenticacao, igual a API. **A Fase 5 ingeriu
-dados REAL** via `etl/` (pacote Python, escreve direto no Postgres): os 645
-municipios oficiais de SP e 17 Departamentos Regionais de Saude (IBGE +
-SES-SP), o GeoJSON oficial da malha territorial (agora renderizado como mapa
-real na Visao Geral, em SVG proprio) e capacidade de leitos SUS/total via
-CNES - tudo com `Origem.REAL` e proveniencia completa
-(`IngestaoExecucao`/`QualidadeCheck`), convivendo sem mistura com os 15
-municipios DEMO (prefixo de codigo IBGE sintetico `36xxxxx`, nunca colide
-com codigo real). **O SIH/SUS (internacoes oncologicas) tambem foi
-ingerido REAL**, para um periodo de prova de conceito (SP, competencia
-2024-02) via pySUS rodando num container Linux dedicado
-(`etl/docker/Dockerfile.sih` - contorna a dependencia nativa que o Windows
-nao consegue compilar, sem alterar o `docker-compose.yml` do projeto).
-Mesmo assim, **o Radar de Risco em si continua calculado exclusivamente
-sobre a base DEMO**: Pressao Hospitalar Estimada REAL precisa de SIH e
-CNES na mesma competencia, e as duas fontes REAL disponiveis nao
-compartilham nenhuma - ver `docs/sih-methodology.md` #9. Ver
+**Estado atual: Fase 5.1 (expansao SIH + integridade temporal) concluida,
+parcialmente.** Schema, migrations, base DEMO, motor de risco
+(`packages/risk`), API REST somente-leitura (`apps/api`) e um dashboard
+navegavel (`apps/web`) existem e estao validados. Do indice, so
+`PRESSAO_HOSPITALAR_ESTIMADA` produz valor - os componentes `TENDENCIA` e
+`SEVERIDADE` ficam estruturalmente prontos mas sempre indisponiveis por
+lacunas metodologicas explicitas (nao implementadas, nao inventadas). O
+frontend consome a API (Visao Geral, Radar de Risco, Municipios, detalhe de
+municipio, Metodologia, Sobre) com identidade visual propria (tema claro,
+azul institucional, escala de risco nunca so cor) - publico, sem
+autenticacao, igual a API. **A Fase 5 ingeriu dados REAL** via `etl/`
+(pacote Python, escreve direto no Postgres): os 645 municipios oficiais de
+SP e 17 Departamentos Regionais de Saude (IBGE + SES-SP), o GeoJSON oficial
+da malha territorial (renderizado como mapa real na Visao Geral, em SVG
+proprio) e capacidade de leitos SUS/total via CNES - tudo com `Origem.REAL`
+e proveniencia completa (`IngestaoExecucao`/`QualidadeCheck`), convivendo
+sem mistura com os 15 municipios DEMO (prefixo de codigo IBGE sintetico
+`36xxxxx`, nunca colide com codigo real). **O SIH/SUS (internacoes
+oncologicas) tambem foi ingerido REAL**, via pySUS rodando num container
+Linux dedicado (`etl/docker/Dockerfile.sih` - contorna a dependencia nativa
+que o Windows nao consegue compilar, sem alterar o `docker-compose.yml` do
+projeto); a Fase 5.1 expandiu a cobertura de 1 para 4 competencias de 2024
+(02, 06, 08, 12 - todas que o catalogo espelhado pelo pysus disponibiliza
+para o ano; as demais 8 foram reportadas como ausentes, nunca inventadas) e
+corrigiu dois bugs de integridade temporal: a API resolvia "competencia mais
+recente" por data pura em vez de por competencia com RiskScore (Radar abria
+vazio por padrao), e o detalhe de municipio ignorava a competencia
+selecionada em `/`/`/radar` (sempre mostrava o RiskScore mais recente do
+municipio, nao o da competencia filtrada). Mesmo assim, **o Radar de Risco
+em si continua calculado exclusivamente sobre a base DEMO**: Pressao
+Hospitalar Estimada REAL precisa de SIH e CNES na mesma competencia, e as
+duas fontes REAL disponiveis nao compartilham nenhuma - a fonte CNES/DEMAS
+usada nao tem historico por competencia (limitacao estrutural, nao pendencia
+de ingestao) - ver `docs/sih-methodology.md` #9 e #11.2. Ver
 [`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md),
 [`docs/fase-2-relatorio.md`](docs/fase-2-relatorio.md),
 [`docs/fase-3-relatorio.md`](docs/fase-3-relatorio.md),
-[`docs/fase-4-relatorio.md`](docs/fase-4-relatorio.md) e
-[`docs/fase-5-relatorio.md`](docs/fase-5-relatorio.md).
+[`docs/fase-4-relatorio.md`](docs/fase-4-relatorio.md),
+[`docs/fase-5-relatorio.md`](docs/fase-5-relatorio.md) e
+[`docs/fase-5.1-relatorio.md`](docs/fase-5.1-relatorio.md).
 
 ## Objetivo
 

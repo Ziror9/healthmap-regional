@@ -50,3 +50,20 @@ export function useRiskFiltersUrl() {
 
   return { filtros, setFiltro, limparFiltros, temFiltrosAtivos };
 }
+
+/**
+ * Link para o detalhe de um municipio que carrega a competencia/origem
+ * selecionadas na pagina de origem (Visao Geral, Radar, mapa) - sem isso, o
+ * usuario perde o filtro temporal ao navegar e a pagina de destino mostra a
+ * competencia mais recente do municipio em vez da que estava sendo
+ * analisada (troca de competencia silenciosa, ver CLAUDE.md/regra critica
+ * da Fase 5.1).
+ */
+export function buildMunicipioHref(municipioId: number, filtros: RiskFiltersState): string {
+  const params = new URLSearchParams();
+  if (filtros.competenciaId !== undefined) params.set('competenciaId', String(filtros.competenciaId));
+  if (filtros.riskConfigId !== undefined) params.set('riskConfigId', String(filtros.riskConfigId));
+  if (filtros.origem !== undefined) params.set('origem', filtros.origem);
+  const query = params.toString();
+  return `/municipios/${municipioId}${query ? `?${query}` : ''}`;
+}

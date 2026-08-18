@@ -12,6 +12,7 @@ import {
   getMunicipioById,
   getCompetenciaById,
   getCompetenciaMaisRecente,
+  getCompetenciaMaisRecenteComRiskScore,
   getRiskConfigMeta,
   resolveDefaultRiskConfigId,
   listOrigensDistintasRiskScore,
@@ -46,10 +47,19 @@ interface FiltrosResolvidos {
  * Resolve competencia/riskConfig/origem quando omitidos pelo cliente.
  * Comportamento documentado em docs/fase-3-relatorio.md #5 (proveniencia):
  *
- * - competenciaId ausente -> competencia mais recente por dataRef;
  * - riskConfigId ausente -> RiskConfig oficial (se existir) ou, na
  *   ausencia (nenhuma config e oficial nesta fase), a config utilizavel
- *   mais recente (maior id com componentes ativos);
+ *   mais recente (maior id com componentes ativos). Resolvido ANTES da
+ *   competencia porque o default de competencia depende dele.
+ * - competenciaId ausente -> competencia mais recente por dataRef QUE TEM
+ *   RiskScore calculado para o riskConfig resolvido (nunca a mais recente
+ *   por data pura e simples: uma competencia pode existir so por causa de
+ *   uma ingestao geografica/de capacidade - ex. snapshot do CNES carimbado
+ *   no mes corrente da ingestao - sem nenhum RiskScore, o que faria o
+ *   Radar abrir vazio por padrao mesmo com dado calculado em competencias
+ *   anteriores). Se nenhuma competencia tiver RiskScore para o riskConfig
+ *   resolvido (ou riskConfigId for null), cai no fallback antigo
+ *   (mais recente por data) - o EmptyState explica a ausencia de dado.
  * - origem ausente -> nao filtra por origem, mas verifica quantas origens
  *   distintas existem no resultado. Mais de uma -> 409, pede para o
  *   cliente desambiguar (nunca mistura REAL/DEMO silenciosamente numa
@@ -57,21 +67,6 @@ interface FiltrosResolvidos {
  *   sempre vem do dado, nunca de uma constante no codigo.
  */
 async function resolverFiltros(query: RiskFiltroQuery): Promise<FiltrosResolvidos> {
-  let competenciaId: number;
-  if (query.competenciaId !== undefined) {
-    const competencia = await getCompetenciaById(prisma, query.competenciaId);
-    if (!competencia) {
-      throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', `Competencia ${query.competenciaId} nao existe.`);
-    }
-    competenciaId = competencia.id;
-  } else {
-    const maisRecente = await getCompetenciaMaisRecente(prisma);
-    if (!maisRecente) {
-      throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', 'Nenhuma competencia cadastrada no banco.');
-    }
-    competenciaId = maisRecente.id;
-  }
-
   let riskConfigId: number | null;
   if (query.riskConfigId !== undefined) {
     const config = await getRiskConfigMeta(prisma, query.riskConfigId);
@@ -81,6 +76,22 @@ async function resolverFiltros(query: RiskFiltroQuery): Promise<FiltrosResolvido
     riskConfigId = config.id;
   } else {
     riskConfigId = await resolveDefaultRiskConfigId(prisma);
+  }
+
+  let competenciaId: number;
+  if (query.competenciaId !== undefined) {
+    const competencia = await getCompetenciaById(prisma, query.competenciaId);
+    if (!competencia) {
+      throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', `Competencia ${query.competenciaId} nao existe.`);
+    }
+    competenciaId = competencia.id;
+  } else {
+    const maisRecenteComDado = riskConfigId !== null ? await getCompetenciaMaisRecenteComRiskScore(prisma, riskConfigId) : null;
+    const maisRecente = maisRecenteComDado ?? (await getCompetenciaMaisRecente(prisma));
+    if (!maisRecente) {
+      throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', 'Nenhuma competencia cadastrada no banco.');
+    }
+    competenciaId = maisRecente.id;
   }
 
   let origemResolvida: OrigemValor | null = query.origem ?? null;

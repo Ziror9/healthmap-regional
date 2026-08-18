@@ -279,6 +279,71 @@ documentada acima, nao por ausencia de dado.
 
 ---
 
+## Fase 5.1 - Expansao SIH 2024 + integridade temporal `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Expandir a ingestao REAL do SIH/SUS para o ano de 2024 inteiro
+e garantir que a competencia selecionada pelo usuario seja respeitada em
+toda a cadeia (API + frontend), sem troca silenciosa.
+
+**Entregas.**
+
+- `etl/ingest_sih.py`: `COMPETENCIAS_POC` ampliado de 3 para as 12
+  competencias de 2024; do catalogo espelhado pelo pysus, so 4 existiam
+  (2024-02, 06, 08, 12) - as demais 8 foram reportadas como ausentes, nunca
+  inventadas. Idempotencia comprovada por execucao dupla completa: mesmas
+  contagens e somas antes/depois, `IngestaoExecucao` cresce a cada execucao
+  (trilha de auditoria), fatos gold nao duplicam;
+- Matriz de sobreposicao SIH x CNES por competencia
+  (`docs/sih-methodology.md` §11.2): nenhuma das 4 competencias SIH REAL
+  tem CNES REAL na mesma competencia - limitacao estrutural da fonte
+  CNES/DEMAS (sem historico por competencia), nao pendencia de ingestao;
+- Correcao de bug pre-existente (achado na auditoria desta fase, nao
+  introduzido por ela): `/api/risk` sem filtro resolvia a competencia mais
+  recente por data pura, que podia ser uma competencia so-geografica/de
+  capacidade sem nenhum RiskScore - Radar abria vazio por padrao. Corrigido
+  para resolver a mais recente **com RiskScore** para o riskConfig
+  resolvido (`packages/db/src/repositories/riskQuery.ts:getCompetenciaMaisRecenteComRiskScore`);
+- Correcao de bug pre-existente no frontend: `/municipios/[id]` ignorava a
+  competencia selecionada em `/`/`/radar` e sempre mostrava o RiskScore mais
+  recente do municipio. Corrigido com propagacao da competencia/origem via
+  URL (`buildMunicipioHref`) e leitura desses parametros no detalhe do
+  municipio, com estado honesto "sem dados para esta competencia" (nunca
+  substituicao silenciosa) quando a competencia selecionada nao tem
+  RiskScore para aquele municipio especifico;
+- `FilterBar` (competencia/origem) adicionado tambem a `/municipios/[id]` -
+  mesmo mecanismo global ja usado em `/` e `/radar`, sem duplicar filtro;
+- Historico do indice (grafico de serie temporal) agora destaca visualmente
+  o ponto da competencia selecionada, distinto do restante do historico;
+- 2 testes de regressao de API (`apps/api/src/__tests__/municipios.test.ts`)
+  provando que `competenciaId` explicito nunca retorna risco de outra
+  competencia, e que uma competencia sem RiskScore para o municipio
+  devolve lista vazia, nunca substituida.
+
+Detalhes completos: [`docs/fase-5.1-relatorio.md`](fase-5.1-relatorio.md) e
+[`docs/sih-methodology.md`](sih-methodology.md) §11.
+
+**Dependencias.** Fase 5.
+
+**Nao entregue nesta rodada:**
+
+- **Pressao Hospitalar Estimada REAL continua indisponivel** - ver matriz
+  de sobreposicao acima. So deixa de valer se o CNES/DEMAS publicar
+  historico por competencia, ou se uma fonte REAL alternativa de
+  capacidade hospitalar historica for adotada - nenhuma das duas existe
+  hoje.
+- **Cobertura SIH alem de 2024 nao expandida** - o catalogo espelhado tem
+  lacunas conhecidas em outros anos tambem (ver `docs/sih-methodology.md`
+  §8); expandir exige rodar `etl/ingest_sih.py` ano a ano.
+- Populacao REAL, vulnerabilidade, tendencia/severidade: sem mudanca desde
+  a Fase 5.
+
+**Criterio de conclusao.** Competencia selecionada e respeitada em toda a
+cadeia, sem fallback silencioso; SIH REAL cobre todo o catalogo disponivel
+de 2024; ausencia de dado documentada, nao inventada. Atingido para o
+escopo entregue.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ClassificacaoRisco, Confiabilidade, RiskScoreItemDTO } from '@healthmap/contracts';
+import type { ClassificacaoRisco, Confiabilidade, RiskFiltroResolvidoDTO, RiskScoreItemDTO } from '@healthmap/contracts';
 import { ArrowDown, ArrowUp, ArrowUpDown, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useState } from 'react';
@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ApiRequestError, getRisk } from '@/lib/api';
 import { formatCompetenciaLabel, formatIndice } from '@/lib/format';
 import { CLASSIFICACAO_ORDEM, getClassificacaoDisplay } from '@/lib/risk-display';
-import { useRiskFiltersUrl } from '@/lib/use-risk-filters';
+import { buildMunicipioHref, useRiskFiltersUrl } from '@/lib/use-risk-filters';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 type Estado =
   | { tipo: 'carregando' }
   | { tipo: 'erro'; mensagem: string }
-  | { tipo: 'pronto'; itens: RiskScoreItemDTO[] };
+  | { tipo: 'pronto'; itens: RiskScoreItemDTO[]; meta: RiskFiltroResolvidoDTO };
 
 type SortKey = 'indice' | 'municipio' | 'classificacao' | 'confiabilidade';
 type SortDir = 'asc' | 'desc';
@@ -52,7 +52,7 @@ function RadarContent() {
 
     getRisk({ ...filtros, pageSize: 200 })
       .then((resposta) => {
-        if (!cancelado) setEstado({ tipo: 'pronto', itens: resposta.data });
+        if (!cancelado) setEstado({ tipo: 'pronto', itens: resposta.data, meta: resposta.meta.filtros });
       })
       .catch((erro: unknown) => {
         if (cancelado) return;
@@ -96,6 +96,7 @@ function RadarContent() {
         {estado.tipo === 'pronto' && (
           <RadarPronto
             itens={estado.itens}
+            meta={estado.meta}
             classificacoesAtivas={classificacoesAtivas}
             onToggleClassificacao={alternarClassificacao}
             sortKey={sortKey}
@@ -137,6 +138,7 @@ function SortHeader({
 
 function RadarPronto({
   itens,
+  meta,
   classificacoesAtivas,
   onToggleClassificacao,
   sortKey,
@@ -144,6 +146,7 @@ function RadarPronto({
   onSort,
 }: {
   itens: RiskScoreItemDTO[];
+  meta: RiskFiltroResolvidoDTO;
   classificacoesAtivas: Set<ClassificacaoRisco>;
   onToggleClassificacao: (classificacao: ClassificacaoRisco) => void;
   sortKey: SortKey;
@@ -168,10 +171,16 @@ function RadarPronto({
   return (
     <div className="space-y-4">
       {primeiroItem && (
-        <FreshnessIndicator
-          competenciaLabel={formatCompetenciaLabel(primeiroItem.competencia.ano, primeiroItem.competencia.mes)}
-          calculadoEm={primeiroItem.calculadoEm}
-        />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="inline-flex items-center text-xs text-muted-foreground">
+            Ranking calculado sobre{' '}
+            <ProvenanceBadge origem={meta.origem ?? primeiroItem.origem} className="mx-1.5 align-middle" />
+          </span>
+          <FreshnessIndicator
+            competenciaLabel={formatCompetenciaLabel(primeiroItem.competencia.ano, primeiroItem.competencia.mes)}
+            calculadoEm={primeiroItem.calculadoEm}
+          />
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -225,7 +234,6 @@ function RadarPronto({
               <TableHead>
                 <SortHeader label="Confiabilidade" chave="confiabilidade" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
               </TableHead>
-              <TableHead>Proveniência</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -234,7 +242,11 @@ function RadarPronto({
                 <TableCell className="text-xs text-muted-foreground">{indice + 1}</TableCell>
                 <TableCell>
                   <Link
-                    href={`/municipios/${item.municipio.id}`}
+                    href={buildMunicipioHref(item.municipio.id, {
+                      competenciaId: item.competencia.id,
+                      riskConfigId: item.riskConfigId,
+                      origem: item.origem,
+                    })}
                     className="font-medium text-foreground hover:text-primary hover:underline"
                   >
                     {item.municipio.nome}
@@ -246,9 +258,6 @@ function RadarPronto({
                 </TableCell>
                 <TableCell>
                   <ConfidenceBadge confiabilidade={item.confiabilidade} />
-                </TableCell>
-                <TableCell>
-                  <ProvenanceBadge origem={item.origem} />
                 </TableCell>
               </TableRow>
             ))}
