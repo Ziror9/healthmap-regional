@@ -19,6 +19,7 @@
     "db:seed": "npm run seed --workspace @healthmap/db",
     "db:calculate-risk": "npm run calculate-risk --workspace @healthmap/db",
     "db:calculate-indicadores-real": "npm run calculate-indicadores-real --workspace @healthmap/db",
+    "db:calculate-indicadores-mortalidade-real": "npm run calculate-indicadores-mortalidade-real --workspace @healthmap/db",
     "db:calculate-risk-real": "npm run calculate-risk-real --workspace @healthmap/db",
     "db:calculate-risk-regional": "npm run calculate-risk-regional --workspace @healthmap/db",
     "prisma:generate": "prisma generate --schema packages/db/prisma/schema.prisma",

@@ -19,6 +19,18 @@
 - **A API (Fase 3) e o frontend (Fase 4) sao publicos, sem autenticacao nem
   RBAC efetivo** - ver secao 7. Nao devem ser expostos fora de ambiente de
   desenvolvimento.
+- **Mortalidade oncologica REAL (Fase 5.6, SIM/DATASUS) foi adicionada como
+  indicador isolado, deliberadamente fora do Radar.** `FatoObitoResidencia`
+  (grao municipio x ano, supressao n<5 decidida uma unica vez sobre o total
+  anual - pivo de grao explicado em `docs/fase-5.6-relatorio.md` #5.1) cobre
+  87,6% dos municipios de SP em 2023 e 89,8% em 2024 (n<5 suprime o resto,
+  honestamente). **O indicador `TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB` so
+  materializa para 2024** - 2023 tem fato REAL valido mas o IBGE nao publica
+  estimativa de populacao para esse ano (mesma lacuna da secao 2/10 para
+  `TAXA_INTERNACAO_10K_HAB`), entao o denominador nao existe. Mortalidade
+  populacional (obitos/populacao residente) NAO deve ser interpretada como
+  letalidade hospitalar (obitos/internados) - sao conceitos epidemiologicos
+  diferentes. Ver `docs/fase-5.6-relatorio.md`.
 - **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
   Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
   entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase
@@ -385,6 +397,34 @@
   deste projeto, nao um produto oficial da SEADE, por isso gravado com
   natureza `ESTIMATIVA` (nunca `OBSERVADO`). Ver
   `docs/fase-5.4-relatorio.md`.
+- **Fragilidade de versao do `pysus` nos containers Docker de ETL (achado
+  na Fase 5.6).** `requirements-sih.txt`/`requirements-cnes-historico.txt`
+  usam `pysus>=2.8,<3` (faixa aberta) - reconstruir essas imagens do zero
+  hoje resolveria uma versao mais nova (`2.11.0`, confirmado) cuja API
+  interna usada por este projeto (`pysus.api._impl.databases.PySUS`) nao
+  existe mais no mesmo caminho, quebrando a ingestao com `ImportError`.
+  `requirements-sim.txt` (Fase 5.6) ja foi corrigido fixando `pysus==2.8.0`;
+  os outros dois containers **continuam vulneraveis** a esse problema se
+  suas imagens forem reconstruidas (o problema so nao aparece hoje porque
+  as imagens ja construidas ficam em cache local, com a versao antiga).
+- **O catalogo do pySUS para SIH-SP 2024 deixou de ser incompleto (achado
+  durante a recuperacao da Fase 5.6, nao causado por ela).** As entradas
+  acima ("so 4 competencias: 02/06/08/12", "1 municipio de cobertura para
+  `TAXA_INTERNACAO_10K_HAB`") descrevem o estado observado nas Fases
+  5.1/5.2 - ao reexecutar `etl/ingest_sih.py` do zero numa recuperacao de
+  banco (ver `docs/fase-5.6-relatorio.md` #9), o catalogo espelhado passou
+  a servir as **12 competencias completas de 2024**, sem nenhuma mudanca de
+  codigo (`COMPETENCIAS_POC` ja pedia o ano inteiro desde a Fase 5.1). Isso
+  triplicou a cobertura REAL de SIH/CNES-historico/RiskScore(Regional) e
+  quebrou 6 asserções com contagem fixa (`x 4`) em
+  `fase5.3.test.ts`/`fase5.4.test.ts`/`fase5.5.test.ts`, alem de uma que
+  espera uma `RiskConfig` intermediaria (`fase5.3-real`) que
+  `calculate-risk-real.ts` no estado atual do codigo nao recria mais (cria
+  direto `fase5.4-real`). **Nao corrigido** - pendencia para uma fase
+  dedicada de atualizar os numeros documentados nas Fases 5.1-5.5 e os
+  testes correspondentes; nao e uma regressao de dado nem de RiskScore, so
+  documentacao/teste desatualizados por uma fonte externa ter publicado
+  mais dado do que tinha antes.
 - **`calculate-risk-demo.ts` precisou ser corrigido nesta fase** para
   filtrar explicitamente os municipios DEMO (`getMunicipios(prisma, {
   apenasDemo: true })`) - antes da correcao, o script processava tambem os

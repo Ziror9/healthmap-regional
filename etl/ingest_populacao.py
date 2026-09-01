@@ -37,7 +37,11 @@ FONTE_POPULACAO = "IBGE_POPULACAO_ESTIMADA"
 # ingest_sih.py::COMPETENCIAS_POC) + 2025, buscado de forma oportunista -
 # se a fonte ainda nao publicou a estimativa de um ano, o script reporta a
 # ausencia e segue (nunca inventa nem interpola).
-ANOS_SOLICITADOS: list[int] = [2024, 2025]
+# Fase 5.6: 2023 adicionado - e o ano do SIM REAL (etl/ingest_sim.py), sem
+# populacao 2023 o indicador TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB nao tem
+# denominador (achado ao rodar calculate-indicadores-mortalidade-real.ts
+# pela primeira vez: 0 municipios com populacao 2023 no banco).
+ANOS_SOLICITADOS: list[int] = [2023, 2024, 2025]
 
 
 def run() -> None:

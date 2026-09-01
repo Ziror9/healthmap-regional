@@ -304,6 +304,11 @@ export default function MunicipioDetalhePage() {
                       {formatNumero(indicador.valor, 2)}
                       {definicao && <span className="ml-1 text-sm font-normal text-muted-foreground">{definicao.unidade}</span>}
                     </p>
+                    {indicador.denominador !== null && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Denominador (população/base do cálculo): {formatNumero(indicador.denominador, 0)}
+                      </p>
+                    )}
                     <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span>Ano {indicador.ano}</span>
                       <ProvenanceBadge origem={indicador.origem} />

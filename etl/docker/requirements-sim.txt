@@ -1,0 +1,19 @@
+# Dependencias exclusivas da ingestao SIM (mortalidade, grupo DO, via pySUS -
+# etl/ingest_sim.py) - so instaladas dentro do container Linux
+# (etl/docker/Dockerfile.sim), nunca no Python principal do host. Mesma
+# biblioteca/bloqueio de pyreaddbc do SIH - ver etl/healthmap_etl/sources/sih.py.
+#
+# pysus PINADO em ==2.8.0 (nao ">=2.8,<3"): confirmado nesta fase que a
+# API interna usada (pysus.api._impl.databases.PySUS) MUDA entre versoes
+# minor - build local com a faixa aberta resolveu 2.11.0 e quebrou
+# (ImportError: PySUS nao existe mais nesse caminho naquela versao).
+# 2.8.0 e a versao ja validada (mesma que etl/docker/Dockerfile.sih tem
+# em cache) - fixar aqui evita o mesmo problema se a imagem for
+# reconstruida do zero. requirements-sih.txt/requirements-cnes-historico.txt
+# tem o MESMO risco (faixa aberta) - fora do escopo desta fase corrigi-los,
+# mas registrado como achado em docs/fase-5.6-relatorio.md.
+pysus==2.8.0
+pandas>=2.2,<3
+pyarrow>=17,<19
+psycopg[binary]>=3.1,<4
+python-dotenv>=1.0,<2

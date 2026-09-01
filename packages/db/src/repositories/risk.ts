@@ -216,6 +216,61 @@ export async function getAgregadoInternacaoResidenciaAnual(
   }));
 }
 
+/**
+ * Obitos oncologicos (SIM, Fase 5.6), grao anual - mesmo raciocinio de
+ * getAgregadoInternacaoResidenciaAnual: IndicadorMunicipal tem grao anual
+ * (municipioId+ano+indicadorDefinicaoId), FatoObitoResidencia e mensal por
+ * competencia, entao a soma precisa acontecer no grao certo ANTES de
+ * persistir. Mesma regra de supressao (`bool_or` sobre todas as celulas do
+ * ano - uma unica celula suprimida em qualquer mes torna o total anual do
+ * municipio indisponivel, nunca uma soma parcial).
+ */
+export interface AgregadoObitoResidencia {
+  municipioId: number;
+  obitosTotal: number | null;
+}
+
+/**
+ * FatoObitoResidencia ja esta no grao anual (municipio x ano x grupoCid) -
+ * a supressao n<5 foi decidida uma unica vez, no proprio total anual, na
+ * ingestao (etl/ingest_sim.py). Nao ha mais competencia/faixaEtaria/sexo
+ * para reagregar aqui: cada linha JA E o total do municipio no ano.
+ */
+export async function getAgregadoObitoResidenciaAnual(
+  prisma: PrismaClient,
+  ano: number,
+): Promise<AgregadoObitoResidencia[]> {
+  const linhas = await prisma.fatoObitoResidencia.findMany({
+    where: { ano },
+    select: { municipioResidenciaId: true, obitos: true, suprimido: true },
+  });
+  return linhas.map((l) => ({
+    municipioId: l.municipioResidenciaId,
+    obitosTotal: l.suprimido ? null : l.obitos,
+  }));
+}
+
+/**
+ * Anos distintos com pelo menos 1 linha REAL em FatoObitoResidencia -
+ * dedicada, NAO reaproveita getCompetencias({apenasReal:true}) de proposito:
+ * aquela funcao resolve competencia REAL a partir de FatoInternacaoResidencia/
+ * Local (SIH), e o SIM cobre anos DIFERENTES do SIH (2023 vs 2024 nesta
+ * fase) - misturar as duas fontes na mesma resolucao de "competencia REAL"
+ * faria calculate-risk-real.ts/calculate-risk-regional.ts passarem a
+ * iterar competencias que so tem dado de mortalidade, mudando a cobertura
+ * do RiskScore de forma indireta - exatamente o que a Fase 5.6 proibe
+ * (RiskScore nao pode mudar).
+ */
+export async function getAnosComObitoResidenciaReal(prisma: PrismaClient): Promise<number[]> {
+  const linhas = await prisma.fatoObitoResidencia.findMany({
+    where: { origem: 'REAL' },
+    select: { ano: true },
+    distinct: ['ano'],
+    orderBy: { ano: 'asc' },
+  });
+  return linhas.map((l) => l.ano);
+}
+
 export async function getAgregadoCapacidadeLeitos(
   prisma: PrismaClient,
   competenciaId: number,

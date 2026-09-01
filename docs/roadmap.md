@@ -487,6 +487,116 @@ valor REAL. Atingido - 645 municipios, verificado no navegador.
 
 ---
 
+## Fase 5.5 - Radar Regional `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Aggregar o Radar de Risco por Regiao de Saude (DRS), com
+supressao n<5 decidida de forma INDEPENDENTE no grao regional (nao derivada
+dos fatos municipais ja suprimidos, o que nao reduziria supressao nenhuma -
+ver decisao registrada abaixo).
+
+**Entregas.**
+
+- 5 tabelas `gold` novas (migration `fase5_5_regional`):
+  `FatoInternacaoResidenciaRegional`, `FatoInternacaoLocalRegional`,
+  `FatoCapacidadeLeitosRegional`, `RiskComponenteValorRegional`,
+  `RiskScoreRegional` - paralelas as tabelas municipais, nunca uma soma
+  delas;
+- `etl/ingest_sih.py` e `etl/ingest_cnes_historico.py` estendidos para
+  agregar tambem por regiao, a partir do MESMO dataframe bruto usado para o
+  grao municipal - supressao regional e decidida de novo, independente;
+- `calculate-risk-regional.ts`: reaproveita as mesmas funcoes de
+  `packages/risk`, mesma RiskConfig REAL do grao municipal (RiskConfig nao
+  e "por grao") - **68 RiskScoreRegional REAL, 17 regioes x 4 competencias,
+  100% de cobertura** (bem acima dos 4-6 municipios/competencia do grao
+  municipal, exatamente porque a supressao e decidida sobre volume regional,
+  nao municipal);
+- `GET /api/risk/regioes` (+`:regiaoSaudeId`+`/components`) - mesmo padrao
+  arquitetural do endpoint municipal;
+- 15 testes de integracao (`fase5.5.test.ts`).
+
+Detalhes completos: [`docs/fase-5.5-relatorio.md`](fase-5.5-relatorio.md)
+(a ser escrito - ver known-limitations.md).
+
+**Dependencias.** Fase 5.4.
+
+**Nao entregue nesta rodada:**
+
+- Sem frontend dedicado ao Radar Regional nesta rodada;
+- `IndicadorRegional` (agregado de IPVS por regiao) usa media ponderada dos
+  valores municipais ja calculados, nao uma nova ingestao regional.
+
+**Criterio de conclusao.** Radar regional calculado e consultavel via API.
+Atingido - 68 RiskScoreRegional, verificado via chamada real a API.
+
+---
+
+## Fase 5.6 - Mortalidade oncologica (SIM) `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Adicionar o primeiro indicador REAL de mortalidade
+(`TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB`, fonte SIM/DATASUS), deliberadamente
+fora do RiskScore - decisao metodologica explicita, nao uma omissao.
+
+**Entregas.**
+
+- Tres rodadas de investigacao antes de qualquer codigo de producao (spike
+  de fontes DATASUS/TABNET, validacao inicial do SIM, validacao final do
+  recorte C00-C97) - achados usados diretamente na implementacao: encoding
+  de SEXO/IDADE do SIM confirmadamente diferente do SIH, chave de
+  deduplicacao, regra generica de municipio invalido;
+- `gold.FatoObitoResidencia` (migration `fase5_6_obito_grao_anual`,
+  substituindo a versao inicial de grao fino) - grao **municipio x ano x
+  grupoCid**, sem eixo internacao (obito nao tem "local de atendimento"
+  equivalente); pivo de grao decidido apos a carga real mostrar 0% de
+  cobertura no grao fino (`bool_or` sobre ~216 celulas por municipio/ano
+  suprimia o total quase sempre) - ver `docs/fase-5.6-relatorio.md` #5.1;
+- `etl/ingest_sim.py`: 2023 e 2024, SP, C00-C97 - 60.827 obitos antes da
+  dedup em 2023 (60.826 depois, 1 duplicata real removida) e 62.542 em 2024
+  (62.537 depois, 5 duplicatas), municipio invalido (350000) rejeitado
+  genericamente (nao um `if` hardcoded), 1.287 celulas municipio x ano
+  gravadas (644 em 2023, 643 em 2024), idempotente (segunda execucao
+  produz os mesmos numeros e nao duplica linhas);
+- `calculate-indicadores-mortalidade-real.ts`: reaproveita `calcularTaxaPor10k`
+  ja existente (`packages/risk`) - nenhuma funcao nova de calculo;
+- **RiskScore/RiskScoreRegional NAO foram alterados** - nenhum arquivo de
+  `packages/risk` tocado, nenhuma RiskConfig aponta para este indicador,
+  confirmado por teste automatizado;
+- nenhuma tela nova no frontend - o card de indicador ja generico (Fase
+  5.2) passou a exibir o indicador automaticamente; unico ajuste foi expor
+  o campo `denominador`, ja existente na API e nunca renderizado;
+- achado de infraestrutura corrigido: `pysus` com faixa de versao aberta
+  quebrou ao reconstruir a imagem do zero (API interna mudou entre
+  versoes) - fixado em `==2.8.0` para este container; o mesmo risco
+  permanece nos containers SIH/CNES-historico, registrado como pendencia;
+- 28 testes Python (funcoes puras) + testes de integracao TypeScript
+  (`fase5.6.test.ts`);
+- **incidente e recuperacao**: durante a migracao de grao, um comando
+  `prisma migrate diff --shadow-database-url` apontou por engano para o
+  banco real e apagou todos os dados (schema preservado). Comunicado de
+  forma transparente, recuperado com aprovacao explicita do usuario -
+  seed DEMO + toda ingestao REAL reexecutada do zero, numeros finais
+  identicos aos anteriores ao incidente. Ver `docs/fase-5.6-relatorio.md` #9.
+
+Detalhes completos: [`docs/fase-5.6-relatorio.md`](fase-5.6-relatorio.md).
+
+**Dependencias.** Fase 5.5.
+
+**Nao entregue nesta rodada:**
+
+- Cobertura de 87,6% (2023) e 89,8% (2024) dos municipios (mesma ordem de
+  grandeza do spike) - o resto fica suprimido (n<5), honestamente, nunca
+  com valor 0;
+- Indicador so materializa para 2024 - 2023 tem fato REAL valido, mas sem
+  populacao IBGE 2023 (lacuna ja conhecida desde a Fase 5.2) o denominador
+  nao existe;
+- `requirements-sih.txt`/`requirements-cnes-historico.txt` continuam com a
+  mesma fragilidade de versao de `pysus` (faixa aberta) corrigida so para SIM.
+
+**Criterio de conclusao.** Indicador REAL observado, visivel no produto, sem
+alterar o RiskScore. Atingido - numeros da carga real bateram exatamente com
+os da validacao previa, RiskScore comprovadamente inalterado por teste.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

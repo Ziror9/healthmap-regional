@@ -211,6 +211,7 @@ model Municipio {
 
   estabelecimentos          Estabelecimento[]
   fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
@@ -263,6 +264,7 @@ model GrupoCid {
   ativo           Boolean  @default(true)
 
   fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
   fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
@@ -321,6 +323,53 @@ model FatoInternacaoResidencia {
 
   @@unique([municipioResidenciaId, competenciaId, grupoCidId, faixaEtaria, sexo])
   @@index([competenciaId])
+  @@index([origem])
+  @@index([execucaoId])
+  @@schema("gold")
+}
+
+/// Mortalidade (SIM/DATASUS, Fase 5.6) - eixo RESIDENCIA por natureza (Declaracao
+/// de Obito registra o municipio onde a pessoa vivia, nao um "eixo internacao"
+/// equivalente ao de FatoInternacaoLocal - obito nao tem local de atendimento
+/// analogo). Por isso so tem o par municipioResidencia, nunca um "FatoObitoLocal".
+///
+/// GRAO ANUAL (municipio x ano x grupoCid), NAO mensal/faixaEtaria/sexo como
+/// FatoInternacaoResidencia - decisao tomada ao implementar (nao na
+/// especificacao original), depois de confirmar que o grao fino faz TODOS os
+/// municipios ficarem suprimidos: um municipio com ~70 obitos/ano, quebrado em
+/// 12 meses x 9 faixas x 2-3 sexos (ate ~216 celulas), quase sempre tem
+/// alguma celula fina com 1-4 obitos, e bool_or sobre essas celulas nulifica
+/// o total anual do municipio inteiro (0 de 645 municipios sobreviviam). A
+/// supressao n<5 aqui e decidida UMA VEZ sobre o total anual por municipio,
+/// mesmo metodo ja validado (spike desta fase: 87,6% de cobertura) - nao e
+/// uma soma parcial de celulas ja suprimidas (essas nunca existiram: a
+/// agregacao de origem, em etl/ingest_sim.py, soma os registros individuais
+/// direto, antes de qualquer supressao).
+///
+/// Indicador derivado (TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB) e OBSERVADO e
+/// NUNCA entra no RiskScore - decisao registrada em docs/fase-5.6-relatorio.md.
+model FatoObitoResidencia {
+  id Int @id @default(autoincrement())
+
+  municipioResidenciaId Int
+  municipioResidencia   Municipio @relation(fields: [municipioResidenciaId], references: [id])
+  ano                   Int
+  grupoCidId            Int
+  grupoCid              GrupoCid @relation(fields: [grupoCidId], references: [id])
+
+  /// NULL quando suprimido = true (n<5, decidido sobre o total anual) - nunca 0.
+  obitos    Int?
+  suprimido Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioResidenciaId, ano, grupoCidId])
+  @@index([ano])
   @@index([origem])
   @@index([execucaoId])
   @@schema("gold")
@@ -761,6 +810,7 @@ model IngestaoExecucao {
   createdAt         DateTime @default(now())
 
   fatosInternacaoResidencia FatoInternacaoResidencia[]
+  fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]

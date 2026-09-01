@@ -1,0 +1,22 @@
+# Ambiente isolado so para a ingestao REAL do SIM (mortalidade oncologica,
+# etl/ingest_sim.py). Mesmo motivo e mesma solucao do Dockerfile.sih
+# (pyreaddbc so tem wheel Linux) - arquivo separado, nao reaproveitado,
+# mesma razao de Dockerfile.cnes_historico (imagem menor, sem acoplar
+# ingestoes diferentes).
+#
+# Uso, a partir da raiz do repositorio:
+#
+#   docker build -f etl/docker/Dockerfile.sim -t healthmap-etl-sim .
+#   docker run --rm -e DATABASE_URL="postgresql://...@host.docker.internal:5432/healthmap?schema=public" healthmap-etl-sim
+
+FROM python:3.11-slim
+
+WORKDIR /etl
+
+COPY etl/docker/requirements-sim.txt ./requirements-sim.txt
+RUN pip install --no-cache-dir -r requirements-sim.txt
+
+COPY etl/healthmap_etl ./healthmap_etl
+COPY etl/ingest_sim.py ./ingest_sim.py
+
+CMD ["python", "ingest_sim.py"]

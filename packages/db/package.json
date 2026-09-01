@@ -17,6 +17,7 @@
     "seed": "tsx src/scripts/seed-demo.ts",
     "calculate-risk": "tsx src/scripts/calculate-risk-demo.ts",
     "calculate-indicadores-real": "tsx src/scripts/calculate-indicadores-real.ts",
+    "calculate-indicadores-mortalidade-real": "tsx src/scripts/calculate-indicadores-mortalidade-real.ts",
     "calculate-risk-real": "tsx src/scripts/calculate-risk-real.ts",
     "calculate-risk-regional": "tsx src/scripts/calculate-risk-regional.ts",
     "test": "vitest run",

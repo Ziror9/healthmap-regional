@@ -16,7 +16,7 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5.4 (vulnerabilidade social/IPVS + Radar REAL ampliado)
+**Estado atual: Fase 5.6 (mortalidade oncologica REAL, SIM/DATASUS)
 concluida, parcialmente.** Schema, migrations, base DEMO, motor de risco
 (`packages/risk`), API REST somente-leitura (`apps/api`) e um dashboard
 navegavel (`apps/web`) existem e estao validados - publico, sem
@@ -39,15 +39,29 @@ agregada por municipio via media ponderada por populacao, aprovada
 explicitamente pelo usuario, natureza `ESTIMATIVA`).
 
 **O Radar de Risco (RiskComponenteValor/RiskScore) ja produz REAL**, nao
-so DEMO: `PRESSAO_HOSPITALAR_ESTIMADA` (Fase 5.3, formula completa,
-natureza ESTIMATIVA) e `VULNERABILIDADE` (Fase 5.4, IPVS) sao os dois
-componentes ativos - a RiskConfig REAL corrente (`fase5.4-real`) produz
-**2.580 RiskScore REAL** (645 municipios x 4 competencias, quintil
-equilibrado), verificado ao vivo no navegador. `TENDENCIA` e `SEVERIDADE`
-ficam estruturalmente prontas mas sempre indisponiveis (DEMO e REAL) por
-lacuna metodologica explicita (janela movel/sazonalidade e formula de
-composicao nunca definidas - nao inventadas). Historico de decisoes,
-bugs corrigidos e numeros exatos de cada fase: ver os relatorios abaixo.
+so DEMO, em dois graos: **municipal** (`PRESSAO_HOSPITALAR_ESTIMADA` +
+`VULNERABILIDADE`, config `fase5.4-real`, 2.580 RiskScore, 645 municipios x
+4 competencias) e **regional** (Fase 5.5 - `RiskScoreRegional`, 17 DRS x 4
+competencias, **100% de cobertura** - supressao n<5 decidida de forma
+independente no grao regional, direto do dado bruto do SIH/CNES, nunca
+somando fatos municipais ja suprimidos). `TENDENCIA`/`SEVERIDADE` ficam
+estruturalmente prontas mas sempre indisponiveis (lacuna metodologica, nao
+inventada).
+
+**Mortalidade oncologica REAL entrou na Fase 5.6** (SIM/DATASUS, grupo DO) -
+`TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB`, indicador `OBSERVADO` -
+**deliberadamente fora do RiskScore** (decisao metodologica explicita:
+mortalidade populacional != letalidade hospitalar). `gold.FatoObitoResidencia`
+tem grao **municipio x ano** (nao competencia/faixaEtaria/sexo - pivo de
+grao decidido apos o grao fino suprimir quase 100% dos municipios mesmo com
+totais anuais robustos, ver `docs/fase-5.6-relatorio.md` #5.1), cobrindo
+87,6% dos municipios em 2023 e 89,8% em 2024; o indicador em si so
+materializa para 2024 (IBGE nao publica populacao 2023). Reaproveita
+`calcularTaxaPor10k` ja existente, nenhuma funcao nova em `packages/risk`,
+nenhuma RiskConfig alterada - confirmado por teste automatizado.
+
+Historico de decisoes, bugs corrigidos e numeros exatos de cada fase: ver
+os relatorios abaixo.
 
 Ver
 [`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md),
@@ -57,8 +71,11 @@ Ver
 [`docs/fase-5-relatorio.md`](docs/fase-5-relatorio.md),
 [`docs/fase-5.1-relatorio.md`](docs/fase-5.1-relatorio.md),
 [`docs/fase-5.2-relatorio.md`](docs/fase-5.2-relatorio.md),
-[`docs/fase-5.3-relatorio.md`](docs/fase-5.3-relatorio.md) e
-[`docs/fase-5.4-relatorio.md`](docs/fase-5.4-relatorio.md).
+[`docs/fase-5.3-relatorio.md`](docs/fase-5.3-relatorio.md),
+[`docs/fase-5.4-relatorio.md`](docs/fase-5.4-relatorio.md) e
+[`docs/fase-5.6-relatorio.md`](docs/fase-5.6-relatorio.md) (Fase 5.5 -
+Radar Regional - implementada e testada, relatorio dedicado ainda
+pendente de redacao, ver `docs/known-limitations.md`).
 
 ## Objetivo
 
