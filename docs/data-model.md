@@ -100,6 +100,14 @@ Medidas: internacoes, obitos, diasPermanencia, suprimido, execucaoId, origem.
 
 **`Populacao`** - municipio x ano x faixa etaria x sexo -> populacao.
 
+**`PopulacaoEstimada`** (Fase 5.2) - municipio x ano -> populacaoTotal, origem,
+execucaoId. Complementar a `Populacao`: a estimativa anual do IBGE (tabela
+SIDRA 6579) so publica o TOTAL por municipio - sem quebra por faixa
+etaria/sexo, que so existe em ano de Censo. Usada como denominador de
+`TAXA_INTERNACAO_10K_HAB` para anos nao-censitarios (ver
+`docs/fase-5.2-relatorio.md`); nunca alimenta `Populacao` (evita inventar uma
+distribuicao etaria/sexo que a fonte nao da).
+
 **`IndicadorMunicipal`** - municipio x ano x indicadorDefinicaoId -> valor,
 denominador, origem. Entidade generica: e ela que permite definir o indicador de
 vulnerabilidade social depois, sem alterar a arquitetura.

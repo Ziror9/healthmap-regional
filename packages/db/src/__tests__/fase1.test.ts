@@ -52,7 +52,9 @@ describe('Fase 1 - conexao e migration', () => {
     `;
     const porSchema = Object.fromEntries(rows.map((r) => [r.table_schema, Number(r.total)]));
     expect(porSchema.silver).toBe(5);
-    expect(porSchema.gold).toBe(7);
+    // 13 desde a Fase 5.5: 7 tabelas gold da Fase 1 + PopulacaoEstimada (Fase 5.2)
+    // + 5 tabelas regionais (Fase 5.5).
+    expect(porSchema.gold).toBe(13);
     expect(porSchema.meta).toBe(10);
   });
 });

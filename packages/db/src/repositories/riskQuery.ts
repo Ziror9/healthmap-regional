@@ -285,3 +285,158 @@ export async function listRiskComponentes(
     origem: r.origem,
   }));
 }
+
+// -----------------------------------------------------------------------------
+// Grao REGIONAL (Fase 5.5) - mesmas funcoes acima, lendo RiskScoreRegional/
+// RiskComponenteValorRegional em vez de RiskScore/RiskComponenteValor. Mesma
+// regra de nunca trocar disponivel=false/valorBruto=null por 0.
+// -----------------------------------------------------------------------------
+
+export async function getCompetenciaMaisRecenteComRiskScoreRegional(
+  prisma: PrismaClient,
+  riskConfigId: number,
+): Promise<CompetenciaComDadosRef | null> {
+  const competenciasComScore = await prisma.riskScoreRegional.findMany({
+    where: { riskConfigId },
+    select: { competenciaId: true },
+    distinct: ['competenciaId'],
+  });
+  if (competenciasComScore.length === 0) return null;
+
+  const competencia = await prisma.competencia.findFirst({
+    where: { id: { in: competenciasComScore.map((c) => c.competenciaId) } },
+    orderBy: { dataRef: 'desc' },
+    select: { id: true, ano: true, mes: true },
+  });
+  return competencia;
+}
+
+export async function listOrigensDistintasRiskScoreRegional(
+  prisma: PrismaClient,
+  filtros: { competenciaId: number; riskConfigId: number },
+): Promise<OrigemValor[]> {
+  const grupos = await prisma.riskScoreRegional.groupBy({
+    by: ['origem'],
+    where: { competenciaId: filtros.competenciaId, riskConfigId: filtros.riskConfigId },
+  });
+  return grupos.map((g) => g.origem);
+}
+
+export interface RiskScoreRegionalListItem {
+  regiaoSaudeId: number;
+  regiaoSaudeNome: string;
+  regiaoSaudeCodigo: string;
+  competenciaId: number;
+  competenciaAno: number;
+  competenciaMes: number;
+  riskConfigId: number;
+  indice: number;
+  classificacao: ClassificacaoValor;
+  confiabilidade: ConfiabilidadeValor;
+  natureza: NaturezaValor;
+  origem: OrigemValor;
+  calculadoEm: string;
+}
+
+function toRiskScoreRegionalListItem(r: {
+  regiaoSaude: { id: number; nome: string; codigo: string };
+  competencia: { id: number; ano: number; mes: number };
+  riskConfigId: number;
+  indice: unknown;
+  classificacao: ClassificacaoValor;
+  confiabilidade: ConfiabilidadeValor;
+  natureza: NaturezaValor;
+  origem: OrigemValor;
+  createdAt: Date;
+}): RiskScoreRegionalListItem {
+  return {
+    regiaoSaudeId: r.regiaoSaude.id,
+    regiaoSaudeNome: r.regiaoSaude.nome,
+    regiaoSaudeCodigo: r.regiaoSaude.codigo,
+    competenciaId: r.competencia.id,
+    competenciaAno: r.competencia.ano,
+    competenciaMes: r.competencia.mes,
+    riskConfigId: r.riskConfigId,
+    indice: Number(r.indice),
+    classificacao: r.classificacao,
+    confiabilidade: r.confiabilidade,
+    natureza: r.natureza,
+    origem: r.origem,
+    calculadoEm: r.createdAt.toISOString(),
+  };
+}
+
+export async function listRiskScoresRegional(
+  prisma: PrismaClient,
+  filtros: { competenciaId: number; riskConfigId: number; origem?: OrigemValor },
+  paginacao: { skip: number; take: number },
+): Promise<{ items: RiskScoreRegionalListItem[]; total: number }> {
+  const where = {
+    competenciaId: filtros.competenciaId,
+    riskConfigId: filtros.riskConfigId,
+    ...(filtros.origem === undefined ? {} : { origem: filtros.origem }),
+  };
+
+  const [rows, total] = await Promise.all([
+    prisma.riskScoreRegional.findMany({
+      where,
+      include: {
+        regiaoSaude: { select: { id: true, nome: true, codigo: true } },
+        competencia: { select: { id: true, ano: true, mes: true } },
+      },
+      orderBy: [{ indice: 'desc' }, { regiaoSaudeId: 'asc' }],
+      skip: paginacao.skip,
+      take: paginacao.take,
+    }),
+    prisma.riskScoreRegional.count({ where }),
+  ]);
+
+  return { items: rows.map(toRiskScoreRegionalListItem), total };
+}
+
+export async function getRiskScoreRegiao(
+  prisma: PrismaClient,
+  filtros: { regiaoSaudeId: number; competenciaId: number; riskConfigId: number; origem?: OrigemValor },
+): Promise<RiskScoreRegionalListItem | null> {
+  const r = await prisma.riskScoreRegional.findUnique({
+    where: {
+      regiaoSaudeId_competenciaId_riskConfigId: {
+        regiaoSaudeId: filtros.regiaoSaudeId,
+        competenciaId: filtros.competenciaId,
+        riskConfigId: filtros.riskConfigId,
+      },
+    },
+    include: {
+      regiaoSaude: { select: { id: true, nome: true, codigo: true } },
+      competencia: { select: { id: true, ano: true, mes: true } },
+    },
+  });
+  if (!r) return null;
+  if (filtros.origem !== undefined && r.origem !== filtros.origem) return null;
+  return toRiskScoreRegionalListItem(r);
+}
+
+export async function listRiskComponentesRegiao(
+  prisma: PrismaClient,
+  filtros: { regiaoSaudeId: number; competenciaId: number; riskConfigId: number; origem?: OrigemValor },
+): Promise<RiskComponenteItem[]> {
+  const rows = await prisma.riskComponenteValorRegional.findMany({
+    where: {
+      regiaoSaudeId: filtros.regiaoSaudeId,
+      competenciaId: filtros.competenciaId,
+      riskConfigId: filtros.riskConfigId,
+      ...(filtros.origem === undefined ? {} : { origem: filtros.origem }),
+    },
+    orderBy: { componente: 'asc' },
+  });
+
+  return rows.map((r) => ({
+    componente: r.componente,
+    valorBruto: r.valorBruto === null ? null : Number(r.valorBruto),
+    valorNormalizado: r.valorNormalizado === null ? null : Number(r.valorNormalizado),
+    natureza: r.natureza,
+    confiabilidade: r.confiabilidade,
+    disponivel: r.disponivel,
+    origem: r.origem,
+  }));
+}

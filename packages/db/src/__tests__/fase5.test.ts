@@ -497,10 +497,14 @@ describe('Fase 5 - SIH/SUS REAL (FatoInternacaoResidencia/Local)', () => {
     expect(municipiosResidencia.length).toBeGreaterThan(municipiosLocal.length);
   });
 
-  it('PRESSAO_HOSPITALAR_ESTIMADA continua indisponivel para REAL: nenhuma competencia tem SIH e CNES REAL simultaneamente', async () => {
-    // Documenta e prova em teste a limitacao explicada em
-    // docs/sih-methodology.md #9 - nao e uma limitacao de codigo, e a
-    // ausencia real de sobreposicao temporal entre os dois insumos REAL.
+  it('SIH e CNES REAL agora compartilham competencia (Fase 5.3: etl/ingest_cnes_historico.py, grupo LT via pySUS)', async () => {
+    // Ate a Fase 5.2 esta intersecao era vazia (docs/sih-methodology.md #9,
+    // #11.2) - a fonte CNES/DEMAS usada em ingest_cnes.py so da um snapshot
+    // atual. A Fase 5.3 ingere CNES historico (grupo LT) para as mesmas
+    // competencias do SIH REAL, o que passa a permitir
+    // PRESSAO_HOSPITALAR_ESTIMADA REAL - ver fase5.3.test.ts para a prova
+    // completa. Este teste so documenta que a limitacao original nao vale
+    // mais, evitando que ela volte a ser assumida silenciosamente por engano.
     const competenciasComSih = await prisma.fatoInternacaoLocal.findMany({
       where: { origem: 'REAL' },
       select: { competenciaId: true },
@@ -514,6 +518,6 @@ describe('Fase 5 - SIH/SUS REAL (FatoInternacaoResidencia/Local)', () => {
     const idsComSih = new Set(competenciasComSih.map((c) => c.competenciaId));
     const idsComLeitos = new Set(competenciasComLeitos.map((c) => c.competenciaId));
     const intersecao = [...idsComSih].filter((id) => idsComLeitos.has(id));
-    expect(intersecao).toEqual([]);
+    expect(intersecao.length).toBeGreaterThan(0);
   });
 });

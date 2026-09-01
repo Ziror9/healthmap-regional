@@ -344,6 +344,149 @@ escopo entregue.
 
 ---
 
+## Fase 5.2 - Populacao REAL + TAXA_INTERNACAO_10K_HAB `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Ingerir populacao REAL (IBGE) para calcular o primeiro
+indicador REAL que nao depende do CNES - `TAXA_INTERNACAO_10K_HAB`, ja
+definido desde a Fase 2, sempre calculado so para DEMO ate aqui.
+
+**Entregas.**
+
+- `gold.PopulacaoEstimada` (nova, migration `fase5_2_populacao_estimada`) -
+  populacao TOTAL anual por municipio (IBGE, tabela SIDRA 6579), separada de
+  `Populacao` (grao censitario, faixaEtaria/sexo) porque a fonte anual so
+  publica o total, sem quebra - nunca preenchida com uma distribuicao
+  inventada;
+- `etl/ingest_populacao.py`: 645 municipios x 2024/2025 (1.290 linhas REAL,
+  idempotente, ambos os anos disponiveis na fonte no periodo solicitado);
+- `calculate-indicadores-real.ts`: reaproveita `calcularTaxaPor10k`
+  (`packages/risk`, mesma formula do DEMO, nenhuma segunda implementacao) e
+  materializa `IndicadorMunicipal` REAL - `denominador` (campo do schema
+  desde a Fase 1, nunca antes preenchido) passa a ser gravado;
+- nenhuma mudanca de API, contrato ou frontend foi necessaria - a cadeia
+  ja era generica o suficiente para o indicador aparecer sozinho no detalhe
+  do municipio;
+- 7 testes Python (parsing puro) + 10 testes de integracao TypeScript
+  (`packages/db/src/__tests__/fase5.2.test.ts`).
+
+Detalhes completos: [`docs/fase-5.2-relatorio.md`](fase-5.2-relatorio.md).
+
+**Dependencias.** Fase 5.1.
+
+**Nao entregue nesta rodada:**
+
+- **Cobertura real e de 1 municipio (Sao Paulo capital) para 2024** - a
+  regra de supressao anual (`bool_or(suprimido)` sobre todas as celulas do
+  ano) e rigorosa o bastante para que quase todo municipio fora da capital
+  tenha pelo menos 1 celula suprimida em algum dos 4 meses REAL - achado
+  estrutural do dado REAL (esparso), nao um bug (ver
+  `docs/fase-5.2-relatorio.md` #5.1 e `docs/known-limitations.md`);
+- Censo 2022 (tabela SIDRA 9514, quebra por idade/sexo) identificado, nao
+  ingerido - so teria valor pratico quando alguma competencia SIH REAL de
+  2022 existir no catalogo pysus, o que nao foi verificado;
+- Pressao Hospitalar Estimada REAL continua indisponivel (sem mudanca -
+  SIH e CNES REAL nao compartilham competencia).
+
+**Criterio de conclusao.** Ao menos um indicador REAL, alem da geografia e
+capacidade de leitos, calculado e visivel no dashboard, com proveniencia
+REAL correta. Atingido - `TAXA_INTERNACAO_10K_HAB` REAL existe, e verificada
+em `/municipios/578` (Sao Paulo), mesmo com cobertura de 1 municipio.
+
+---
+
+## Fase 5.3 - CNES historico + primeiro Radar REAL `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Resolver a limitacao estrutural que impedia Pressao
+Hospitalar Estimada REAL (SIH e CNES nunca compartilhavam competencia -
+docs/sih-methodology.md #9/#11.2) e, com isso, produzir o primeiro
+RiskScore/RiskComponenteValor REAL desde que o produto existe.
+
+**Entregas.**
+
+- `etl/ingest_cnes_historico.py` (container Linux dedicado,
+  `etl/docker/Dockerfile.cnes_historico`, mesma solucao do SIH): CNES
+  historico REAL, grupo LT (leitos por competencia, via pySUS), para as
+  mesmas 4 competencias ja cobertas por SIH REAL (2024-02/06/08/12) -
+  3.917 linhas de `FatoCapacidadeLeitos` REAL, idempotente;
+- `calculate-risk-real.ts`: primeiro calculo do Radar (RiskComponenteValor +
+  RiskScore) sobre municipios/competencias REAL, reaproveitando as mesmas
+  funcoes de `packages/risk` ja usadas pelo DEMO. RiskConfig REAL nova
+  (pesos iguais, nao oficial, mesma logica das configs DEMO da Fase 2). 19
+  RiskScore REAL materializados (4-6 municipios por competencia) - o Radar
+  deixou de ser exclusivamente DEMO;
+- nenhuma mudanca de API, contrato ou frontend foi necessaria - verificado
+  ao vivo em `/municipios/78` (Barretos): indice 1.00, Critico, componente
+  Pressao Hospitalar com valor REAL, demais componentes corretamente
+  indisponiveis;
+- 15 testes de integracao novos (`packages/db/src/__tests__/fase5.3.test.ts`)
+  + correcao de 3 testes pre-existentes (Fase 2/5) que assumiam a
+  limitacao agora resolvida.
+
+Detalhes completos: [`docs/fase-5.3-relatorio.md`](fase-5.3-relatorio.md) e
+[`docs/sih-methodology.md`](sih-methodology.md) #12.
+
+**Dependencias.** Fase 5.2.
+
+**Nao entregue nesta rodada:**
+
+- Cobertura ainda modesta (4-6 de ~350-600 municipios por competencia) -
+  mesma supressao n<5, agora por mes em vez de por ano inteiro;
+- UTI nunca gravado a partir desta fonte (decisao conservadora, CODLEITO
+  sem tabela estavel confirmada);
+- VULNERABILIDADE REAL segue sem fonte configurada (proximo item natural,
+  ver Fase 6/pendencias);
+- TENDENCIA/SEVERIDADE REAL sem mudanca (lacuna metodologica).
+
+**Criterio de conclusao.** Pelo menos uma competencia com RiskScore REAL
+calculado e visivel no dashboard. Atingido - 4 competencias, 19 RiskScore
+REAL, verificado no navegador.
+
+---
+
+## Fase 5.4 - Vulnerabilidade social (IPVS) + Radar REAL ampliado `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Ativar VULNERABILIDADE - sem fonte definida desde a Fase 0 -
+usando o Indice Paulista de Vulnerabilidade Social (IPVS, Fundacao SEADE).
+
+**Entregas.**
+
+- Decisao de metodologia aprovada explicitamente pelo usuario: a unica
+  fonte IPVS maquina-legivel e por setor censitario (nao municipio) e sem
+  licenca declarada na pagina do recurso - `etl/ingest_vulnerabilidade.py`
+  agrega por municipio via media ponderada por populacao (natureza
+  `ESTIMATIVA`, licenca registrada como nao declarada, nunca inventada);
+- `HEALTHMAP_BRONZE_DIR` finalmente em uso (reservada desde a Fase 0) -
+  arquivos grandes (IPVS + populacao por setor, ~100MB) baixados sob
+  demanda, nunca versionados;
+- `IndicadorMunicipal` REAL (`IPVS_MEDIA_PONDERADA_SETOR`) para os 645
+  municipios, 82,9% de cobertura de setores no calculo;
+- Nova `RiskConfig` REAL (`fase5.4-real`) com VULNERABILIDADE apontando
+  para o indicador - `calcularVulnerabilidade` (`packages/risk`) nao
+  precisou de nenhuma mudanca (ja aceitava valor externo desde a Fase 2);
+- **Radar REAL saltou de 19 para 2.580 RiskScore** (645 municipios x 4
+  competencias) - com VULNERABILIDADE cobrindo 100% dos municipios, o
+  Radar deixa de depender so da disponibilidade de SIH+CNES;
+- corrigida flakiness de infraestrutura de teste (`packages/db/vitest.config.ts`,
+  `fileParallelism: false`) - achado ao crescer a suite, nao um bug de
+  produto;
+- 19 testes novos (8 Python + 11 TypeScript).
+
+Detalhes completos: [`docs/fase-5.4-relatorio.md`](fase-5.4-relatorio.md).
+
+**Dependencias.** Fase 5.3.
+
+**Nao entregue nesta rodada:**
+
+- Aproximacao, nao produto oficial da SEADE (media ponderada e calculo
+  deste projeto, nao publicado pronto pela fonte);
+- Licenca da fonte primaria nao confirmada;
+- TENDENCIA/SEVERIDADE REAL sem mudanca (lacuna metodologica).
+
+**Criterio de conclusao.** Componente VULNERABILIDADE do Radar produzindo
+valor REAL. Atingido - 645 municipios, verificado no navegador.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

@@ -235,3 +235,48 @@ alternativa de capacidade hospitalar histórica for adotada. Nenhuma
 aproximação temporal (usar o snapshot de 2026-08 como proxy de 2024) foi
 feita — produziria um número REAL com premissa não validada, o que este
 projeto não faz (CLAUDE.md, "nunca invente dados").
+
+**Atualização (Fase 5.3): a opção (b) acima foi encontrada e implementada.**
+Ver seção 12 — a alternativa REAL de capacidade histórica é o próprio CNES,
+grupo LT, acessado via pySUS (não a API DEMAS), disponível desde Out/2005.
+As seções 9-11.2 acima permanecem como registro histórico de por que a
+Fase 5/5.1 não conseguiram resolver isso com a fonte que tinham; não
+apagadas para preservar o raciocínio que levou à Fase 5.3.
+
+## 12. Fase 5.3 — CNES histórico (grupo LT, via pySUS) resolve a sobreposição
+
+`etl/ingest_cnes_historico.py` (container Linux dedicado,
+`etl/docker/Dockerfile.cnes_historico` - mesma solução de ambiente do SIH)
+lê o grupo **LT** do CNES no mesmo catálogo DuckLake/pySUS já usado para o
+SIH - histórico real de leitos por competência, confirmado disponível para
+SP desde Out/2005. Detalhes completos, decisões de mapeamento de
+`TP_LEITO` e resultado da execução: `docs/fase-5.3-relatorio.md`.
+
+### 12.1 Matriz de sobreposição SIH × CNES, atualizada
+
+| Competência | SIH REAL | CNES REAL (LT) | Sobreposição | Pressão Hospitalar REAL possível |
+|---|---|---|---|---|
+| 2024-02 | ✅ | ✅ | ✅ | ✅ (4 municípios) |
+| 2024-06 | ✅ | ✅ | ✅ | ✅ (6 municípios) |
+| 2024-08 | ✅ | ✅ | ✅ | ✅ (5 municípios) |
+| 2024-12 | ✅ | ✅ | ✅ | ✅ (4 municípios) |
+
+Cobertura por município ainda modesta (a mesma supressão `n<5` que já
+limitava outros indicadores REAL agora também filtra Pressão Hospitalar,
+célula a célula, por competência) — mas a limitação **estrutural** (fontes
+que nunca compartilhavam competência) está resolvida. `calculate-risk-real.ts`
+materializa `RiskComponenteValor`/`RiskScore` REAL pela primeira vez desde
+que o produto existe — o Radar deixou de ser exclusivamente DEMO.
+
+### 12.2 O que continua pendente
+
+- UTI não é gravado a partir do CNES histórico (decisão conservadora,
+  `CODLEITO` reclassificado sem tabela estável confirmada - ver
+  `docs/fase-5.3-relatorio.md` §2). Não afeta a fórmula (soma todos os
+  tipos).
+- VULNERABILIDADE: sem fonte REAL configurada nesta fase.
+- TENDÊNCIA REAL (variação com sazonalidade) e SEVERIDADE REAL: sem
+  mudança - lacuna metodológica, não de dado.
+- Expandir a cobertura (mais anos de SIH + CNES histórico, mesma mecânica)
+  é o próximo passo mecânico mais simples para aumentar o número de
+  municípios com índice REAL.

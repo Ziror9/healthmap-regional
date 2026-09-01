@@ -50,6 +50,47 @@ def upsert_fonte_dados(
         )
 
 
+def upsert_indicador_definicao(
+    conn: psycopg.Connection,
+    *,
+    chave: str,
+    nome: str,
+    fonte: str,
+    unidade: str,
+    periodicidade: str,
+    direcao: str,
+    eixo_territorial: str,
+    natureza_padrao: str,
+    nota_metodologica: str | None = None,
+) -> None:
+    """
+    Cria/atualiza uma linha de meta."IndicadorDefinicao" a partir do ETL -
+    ate a Fase 5.4 todo IndicadorDefinicao era criado por seed-demo.ts
+    (TypeScript). Um indicador REAL novo (ex.: vulnerabilidade social) pode
+    nao ter equivalente DEMO nenhum, entao o proprio ETL precisa garantir
+    que a definicao existe antes de gravar IndicadorMunicipal que aponte
+    para ela (FK).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO meta."IndicadorDefinicao"
+                (chave, nome, fonte, unidade, periodicidade, direcao, "eixoTerritorial", "naturezaPadrao", "notaMetodologica", ativo)
+            VALUES (%s, %s, %s, %s, %s, %s::meta."IndicadorDirecao", %s::meta."EixoTerritorial", %s::meta."Natureza", %s, true)
+            ON CONFLICT (chave) DO UPDATE SET
+                nome = EXCLUDED.nome,
+                fonte = EXCLUDED.fonte,
+                unidade = EXCLUDED.unidade,
+                periodicidade = EXCLUDED.periodicidade,
+                direcao = EXCLUDED.direcao,
+                "eixoTerritorial" = EXCLUDED."eixoTerritorial",
+                "naturezaPadrao" = EXCLUDED."naturezaPadrao",
+                "notaMetodologica" = EXCLUDED."notaMetodologica"
+            """,
+            (chave, nome, fonte, unidade, periodicidade, direcao, eixo_territorial, natureza_padrao, nota_metodologica),
+        )
+
+
 @dataclass
 class Execucao:
     """Uma IngestaoExecucao em andamento - contadores acumulam conforme o pipeline processa linhas."""

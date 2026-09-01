@@ -185,6 +185,12 @@ model RegiaoSaude {
   municipios          Municipio[]
   escoposTerritoriais EscopoTerritorial[]
 
+  fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
+  fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
+  fatosCapacidadeLeitosRegional     FatoCapacidadeLeitosRegional[]
+  riskComponenteValoresRegional     RiskComponenteValorRegional[]
+  riskScoresRegional                RiskScoreRegional[]
+
   @@schema("silver")
 }
 
@@ -208,6 +214,7 @@ model Municipio {
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
+  populacoesEstimadas       PopulacaoEstimada[]
   indicadoresMunicipais     IndicadorMunicipal[]
   riskComponenteValores     RiskComponenteValor[]
   riskScores                RiskScore[]
@@ -233,6 +240,12 @@ model Competencia {
   riskScores                RiskScore[]
   ingestaoExecucoes         IngestaoExecucao[]
 
+  fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
+  fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
+  fatosCapacidadeLeitosRegional     FatoCapacidadeLeitosRegional[]
+  riskComponenteValoresRegional     RiskComponenteValorRegional[]
+  riskScoresRegional                RiskScoreRegional[]
+
   @@unique([ano, mes])
   @@unique([dataRef])
   @@schema("silver")
@@ -251,6 +264,8 @@ model GrupoCid {
 
   fatosInternacaoResidencia FatoInternacaoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
+  fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
 
   @@unique([codigoCidInicio, codigoCidFim, agrupamento])
   @@schema("silver")
@@ -393,6 +408,32 @@ model Populacao {
   @@schema("gold")
 }
 
+/// Populacao TOTAL estimada anual (IBGE, tabela SIDRA 6579 - "Estimativas de
+/// populacao"), complementar a Populacao (grao censitario municipio x ano x
+/// faixaEtaria x sexo, so existe em ano de Censo). A estimativa anual so
+/// publica o total por municipio, sem quebra por idade/sexo - por isso NUNCA
+/// deve alimentar Populacao (faixaEtaria/sexo la sao NOT NULL: forcar um
+/// valor ali exigiria inventar uma distribuicao que a fonte nao da).
+/// Usada como denominador de indicadores anuais (ex. TAXA_INTERNACAO_10K_HAB)
+/// para anos nao-censitarios - ver etl/ingest_populacao.py.
+model PopulacaoEstimada {
+  id Int @id @default(autoincrement())
+
+  municipioId    Int
+  municipio      Municipio @relation(fields: [municipioId], references: [id])
+  ano            Int
+  populacaoTotal Int
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([municipioId, ano])
+  @@schema("gold")
+}
+
 model IndicadorMunicipal {
   id Int @id @default(autoincrement())
 
@@ -472,6 +513,149 @@ model RiskScore {
 }
 
 // -----------------------------------------------------------------------------
+// gold - grao REGIONAL (Fase 5.5) - mesma familia de fatos acima, mas por
+// RegiaoSaude (DRS) em vez de Municipio. Tabelas PARALELAS, nao uma soma dos
+// fatos municipais: agregar municipios ja suprimidos perderia a informacao
+// suprimida para sempre (nunca foi persistida - ver etl/README.md #1), entao
+// nao ha como "somar depois". A supressao n<5 e decidida de novo, de forma
+// independente, direto do dado bruto, no grao regional - por isso os
+// ingest_*.py (SIH, CNES) escrevem aqui a partir do MESMO dataframe bruto que
+// alimenta o grao municipal, nunca lendo de FatoInternacaoResidencia/Local/
+// FatoCapacidadeLeitos. Ver docs/fase-5.5-relatorio.md.
+// -----------------------------------------------------------------------------
+
+model FatoInternacaoResidenciaRegional {
+  id Int @id @default(autoincrement())
+
+  regiaoSaudeResidenciaId Int
+  regiaoSaudeResidencia   RegiaoSaude @relation(fields: [regiaoSaudeResidenciaId], references: [id])
+  competenciaId           Int
+  competencia             Competencia @relation(fields: [competenciaId], references: [id])
+  grupoCidId              Int
+  grupoCid                GrupoCid @relation(fields: [grupoCidId], references: [id])
+  faixaEtaria             FaixaEtaria
+  sexo                    Sexo
+
+  internacoes     Int?
+  obitos          Int?
+  diasPermanencia Int?
+  suprimido       Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([regiaoSaudeResidenciaId, competenciaId, grupoCidId, faixaEtaria, sexo])
+  @@index([competenciaId])
+  @@schema("gold")
+}
+
+model FatoInternacaoLocalRegional {
+  id Int @id @default(autoincrement())
+
+  regiaoSaudeInternacaoId Int
+  regiaoSaudeInternacao   RegiaoSaude @relation(fields: [regiaoSaudeInternacaoId], references: [id])
+  competenciaId           Int
+  competencia             Competencia @relation(fields: [competenciaId], references: [id])
+  grupoCidId              Int
+  grupoCid                GrupoCid @relation(fields: [grupoCidId], references: [id])
+  faixaEtaria             FaixaEtaria
+  sexo                    Sexo
+
+  internacoes  Int?
+  pacientesDia Int?
+  diariasUti   Int?
+  obitos       Int?
+  suprimido    Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([regiaoSaudeInternacaoId, competenciaId, grupoCidId, faixaEtaria, sexo])
+  @@index([competenciaId])
+  @@schema("gold")
+}
+
+model FatoCapacidadeLeitosRegional {
+  id Int @id @default(autoincrement())
+
+  regiaoSaudeInternacaoId Int
+  regiaoSaudeInternacao   RegiaoSaude @relation(fields: [regiaoSaudeInternacaoId], references: [id])
+  competenciaId           Int
+  competencia             Competencia @relation(fields: [competenciaId], references: [id])
+  tipoLeito               TipoLeito
+
+  /// Sem supressao (capacidade operacional, nao contagem de pacientes -
+  /// mesma decisao ja tomada para FatoCapacidadeLeitos municipal).
+  leitosSus    Int
+  leitosTotais Int
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([regiaoSaudeInternacaoId, competenciaId, tipoLeito])
+  @@index([competenciaId])
+  @@schema("gold")
+}
+
+model RiskComponenteValorRegional {
+  id Int @id @default(autoincrement())
+
+  regiaoSaudeId Int
+  regiaoSaude   RegiaoSaude @relation(fields: [regiaoSaudeId], references: [id])
+  competenciaId Int
+  competencia   Competencia @relation(fields: [competenciaId], references: [id])
+  riskConfigId  Int
+  riskConfig    RiskConfig @relation(fields: [riskConfigId], references: [id])
+  componente    ComponenteRisco
+
+  valorBruto       Decimal? @db.Decimal(14, 4)
+  valorNormalizado Decimal? @db.Decimal(5, 4)
+  natureza         Natureza
+  confiabilidade   Confiabilidade
+  disponivel       Boolean @default(true)
+  origem           Origem
+
+  createdAt DateTime @default(now())
+
+  @@unique([regiaoSaudeId, competenciaId, riskConfigId, componente])
+  @@schema("gold")
+}
+
+model RiskScoreRegional {
+  id Int @id @default(autoincrement())
+
+  regiaoSaudeId Int
+  regiaoSaude   RegiaoSaude @relation(fields: [regiaoSaudeId], references: [id])
+  competenciaId Int
+  competencia   Competencia @relation(fields: [competenciaId], references: [id])
+  riskConfigId  Int
+  riskConfig    RiskConfig @relation(fields: [riskConfigId], references: [id])
+
+  indice         Decimal @db.Decimal(5, 4)
+  classificacao  ClassificacaoRisco
+  confiabilidade Confiabilidade
+  natureza       Natureza
+  origem         Origem
+
+  createdAt DateTime @default(now())
+
+  @@unique([regiaoSaudeId, competenciaId, riskConfigId])
+  @@schema("gold")
+}
+
+// -----------------------------------------------------------------------------
 // meta - configuracao versionada da metodologia e governanca
 // -----------------------------------------------------------------------------
 
@@ -517,6 +701,8 @@ model RiskConfig {
   componentes            RiskConfigComponente[]
   riskComponenteValores  RiskComponenteValor[]
   riskScores             RiskScore[]
+  riskComponenteValoresRegional RiskComponenteValorRegional[]
+  riskScoresRegional            RiskScoreRegional[]
 
   @@schema("meta")
 }
@@ -578,8 +764,12 @@ model IngestaoExecucao {
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
+  populacoesEstimadas       PopulacaoEstimada[]
   indicadoresMunicipais     IndicadorMunicipal[]
   qualidadeChecks           QualidadeCheck[]
+  fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
+  fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
+  fatosCapacidadeLeitosRegional     FatoCapacidadeLeitosRegional[]
 
   @@index([fonteDadosId, competenciaId])
   @@index([status])

@@ -3,11 +3,15 @@
 # psycopg[binary]: ETL escreve direto no PostgreSQL via SQL (ADR-001 #6 -
 # "Python escreve no banco, TypeScript le"). Nao passa por packages/db - essa
 # fronteira e exclusiva da aplicacao TypeScript (apps/api, apps/web).
-# requests: chamadas as APIs oficiais (IBGE, Ministerio da Saude/DEMAS).
+# requests: chamadas as APIs oficiais (IBGE, Ministerio da Saude/DEMAS, SEADE).
 # python-dotenv: le o .env unico da raiz do monorepo (mesma DATABASE_URL do Prisma).
+# dbfread: le o arquivo .dbf do IPVS/SEADE (Fase 5.4) - formato DBF puro
+# (tabela de atributos de shapefile), sem relacao com pyreaddbc/SIH - roda no
+# host normalmente, nao exige o container Linux.
 psycopg[binary]>=3.1,<4
 python-dotenv>=1.0,<2
 requests>=2.31,<3
+dbfread>=2.0,<3
 
 # Testes (etl/tests/) - so funcoes puras, sem rede nem banco.
 pytest>=8.0,<9

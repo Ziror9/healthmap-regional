@@ -55,9 +55,13 @@ describe('Fase 2 - RiskComponenteValor', () => {
     expect(Number(orfaos[0]?.total ?? -1)).toBe(0);
   });
 
-  it('9. origem e sempre DEMO', async () => {
-    const naoDemo = await prisma.riskComponenteValor.count({ where: { NOT: { origem: 'DEMO' } } });
-    expect(naoDemo).toBe(0);
+  it('9. origem de um municipio DEMO nunca e diferente de DEMO (desde a Fase 5.3, a tabela tambem tem linhas REAL - ver fase5.3.test.ts - mas nunca misturadas para o mesmo municipio)', async () => {
+    const misturado = await prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) as total FROM gold."RiskComponenteValor" rcv
+      JOIN silver."Municipio" m ON m.id = rcv."municipioId"
+      WHERE m."codigoIbge7" LIKE '36%' AND rcv.origem != 'DEMO'
+    `;
+    expect(Number(misturado[0]?.total ?? -1)).toBe(0);
   });
 
   it('10. natureza reflete o componente, nunca e um valor fixo uniforme', async () => {
@@ -133,9 +137,13 @@ describe('Fase 2 - RiskScore', () => {
     expect(Number(orfaos[0]?.total ?? -1)).toBe(0);
   });
 
-  it('9. origem e sempre DEMO', async () => {
-    const naoDemo = await prisma.riskScore.count({ where: { NOT: { origem: 'DEMO' } } });
-    expect(naoDemo).toBe(0);
+  it('9. origem de um municipio DEMO nunca e diferente de DEMO (desde a Fase 5.3, a tabela tambem tem linhas REAL - ver fase5.3.test.ts - mas nunca misturadas para o mesmo municipio)', async () => {
+    const misturado = await prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) as total FROM gold."RiskScore" rs
+      JOIN silver."Municipio" m ON m.id = rs."municipioId"
+      WHERE m."codigoIbge7" LIKE '36%' AND rs.origem != 'DEMO'
+    `;
+    expect(Number(misturado[0]?.total ?? -1)).toBe(0);
   });
 
   it('11. riskConfigId distingue historico: 2 RiskConfig distintas produziram RiskScore', async () => {

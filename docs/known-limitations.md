@@ -7,25 +7,26 @@
 
 - **O projeto nao esta pronto para uso operacional.** Nao deve embasar decisao
   de saude publica no estado atual.
-- Fases 0-5 concluidas (Fase 2, 3, 4 e 5 parciais - ver secoes 5, 8, 9 e 10):
-  existe fundacao tecnica, schema de dominio, migrations, base DEMO
+- Fases 0-5.2 concluidas (Fase 2, 3, 4, 5 e 5.2 parciais - ver secoes 5, 8, 9
+  e 10): existe fundacao tecnica, schema de dominio, migrations, base DEMO
   deterministica, motor de risco funcional sobre essa base, uma API REST
   somente-leitura expondo esses dados, um dashboard navegavel consumindo
   essa API (agora com mapa geografico real de SP), e uma primeira ingestao
-  REAL (geografia IBGE completa + capacidade de leitos CNES) convivendo com
-  a base DEMO sem mistura.
+  REAL (geografia IBGE completa + capacidade de leitos CNES + populacao
+  estimada IBGE) convivendo com a base DEMO sem mistura. A Fase 5.2 tambem
+  materializou o primeiro `IndicadorMunicipal` REAL (`TAXA_INTERNACAO_10K_HAB`),
+  mas com cobertura de apenas 1 municipio - ver secao 10.
 - **A API (Fase 3) e o frontend (Fase 4) sao publicos, sem autenticacao nem
   RBAC efetivo** - ver secao 7. Nao devem ser expostos fora de ambiente de
   desenvolvimento.
-- **O Radar de Risco continua parcial e continua calculado so sobre a base
-  DEMO.** A ingestao REAL da Fase 5 trouxe geografia e capacidade de leitos;
-  a Fase 5 (segunda rodada) e a Fase 5.1 trouxeram internacoes oncologicas
-  do SIH/SUS REAL para 4 competencias de 2024 (02, 06, 08, 12 - todas que o
-  catalogo espelhado disponibiliza para o ano) - mas Pressao Hospitalar
-  Estimada REAL continua indisponivel porque as duas fontes REAL que ela
-  precisa (SIH e CNES) nao tem nenhuma competencia em comum: a fonte CNES
-  usada nao tem historico por competencia (motivo completo: secao 10,
-  `docs/sih-methodology.md` §9 e §11.2). Ver secoes 5 e 10.
+- **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
+  Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
+  entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase
+  5.4 (IPVS/SEADE, aproximacao por media ponderada) ativou VULNERABILIDADE
+  REAL para os 645 municipios - com isso o Radar REAL saltou de 19 para
+  **2.580 RiskScore** (645 municipios x 4 competencias, quintil
+  equilibrado). `TENDENCIA`/`SEVERIDADE` REAL seguem indisponiveis (sem
+  metodologia) - ver secao 10.
 
 ## 2. Dados
 
@@ -68,13 +69,19 @@
   `docs/sih-methodology.md` para cobertura exata, decisoes e limitacoes.
 - **Integracao com o CNES implementada parcialmente (Fase 5).** Ver secao 10.
 - **Integracao com o IBGE implementada (Fase 5)** para municipios e malha
-  territorial (GeoJSON). **Populacao (Censo 2022, tabela 9514 do SIDRA) foi
-  investigada mas nao implementada nesta fase** - fonte identificada e
-  publica, mas a ingestao ficou fora do tempo disponivel da Fase 5; a base
-  DEMO de `Populacao` continua sendo o unico dado de populacao no sistema.
-  Sem populacao REAL, a taxa de internacao por 10k habitantes (TENDENCIA)
-  tambem nao pode ser REAL, mesmo com `FatoInternacaoResidencia` REAL
-  agora existindo.
+  territorial (GeoJSON), **e para populacao estimada anual (Fase 5.2)** -
+  `etl/ingest_populacao.py` carrega a estimativa anual do IBGE (tabela SIDRA
+  6579, TOTAL por municipio, sem quebra etaria/sexo) em `gold.PopulacaoEstimada`
+  para 2024 e 2025. **Censo 2022 (tabela 9514, quebra real por idade/sexo)
+  continua investigado mas nao implementado** - so teria valor pratico
+  quando alguma competencia SIH REAL de 2022 existir no catalogo pysus, o
+  que nao foi verificado. Com populacao estimada REAL agora existindo,
+  `TAXA_INTERNACAO_10K_HAB` (o indicador OBSERVADO que fundamenta TENDENCIA)
+  ja e calculado com origem REAL (`calculate-indicadores-real.ts`) - mas com
+  cobertura de apenas 1 municipio (Sao Paulo capital) para 2024, por uma
+  razao estrutural do dado REAL, nao uma lacuna de codigo - ver secao 10. O
+  componente TENDENCIA do Radar em si (variacao em janela movel com
+  sazonalidade) continua indisponivel, sem definicao metodologica.
 
 ## 3. Limitacoes estruturais das fontes (valerao mesmo com dados reais)
 
@@ -328,6 +335,21 @@
   ingestao (`obter_ou_criar_competencia_atual` em `ingest_cnes.py`), que
   por isso pode aparecer no seletor de competencia da UI sem nenhum Radar
   calculado (comportamento esperado, ver `EmptyState` na Visao Geral).
+- **`TAXA_INTERNACAO_10K_HAB` REAL (Fase 5.2) tem cobertura de 1 municipio
+  para 2024, nao 645.** `getAgregadoInternacaoResidenciaAnual` (existente
+  desde a Fase 2, reaproveitada sem alteracao) aplica `bool_or(suprimido)`
+  sobre TODAS as celulas (`faixaEtaria x sexo`) de TODAS as 4 competencias
+  REAL do ano - uma unica celula suprimida (`n<5`) em qualquer mes torna o
+  total anual do municipio inteiro `NULL`, nunca uma soma parcial. 642 dos
+  645 municipios REAL tem pelo menos 1 celula SIH REAL em 2024, mas so 1
+  (Sao Paulo capital) nao tem nenhuma celula suprimida no ano inteiro -
+  internacao oncologica e um evento raro por municipio/mes, entao quase
+  todo municipio fora da capital tem ao menos uma combinacao faixaEtaria x
+  sexo abaixo do limiar em algum dos 4 meses. **Nao e um bug**: e a regra de
+  supressao (`NULL != 0`) funcionando como desenhada, agora exposta a dado
+  REAL esparso em vez da base DEMO (mais densa por construcao). Nao ha
+  correcao de codigo que amplie essa cobertura sem flexibilizar a regra de
+  supressao - ver `docs/fase-5.2-relatorio.md` #5.1 e #9.
 - **Colisão de nome entre município DEMO e município REAL (encontrada e
   corrigida na auditoria final da Fase 5).** 8 dos 15 municípios
   ilustrativos do seed DEMO reusam o nome exato de um município REAL
@@ -344,6 +366,25 @@
   "Município ilustrativo (DEMO)" no cabeçalho do detalhe quando aplicável.
   O mapa (`MapaSP`) não foi afetado: só renderiza os 645 `codarea` do
   GeoJSON REAL, nunca os municípios DEMO.
+- **CNES historico REAL (Fase 5.3, grupo LT via pySUS) e o primeiro Radar
+  REAL.** `etl/ingest_cnes_historico.py` ingeriu capacidade de leitos REAL
+  por competencia (nao snapshot) para as 4 competencias ja cobertas por SIH
+  REAL - a sobreposicao que faltava para Pressao Hospitalar Estimada REAL.
+  `calculate-risk-real.ts` calculou 19 `RiskScore` REAL. So CIRURGICO/CLINICO/OUTRO
+  sao gravados por esta fonte (nunca UTI - o subcodigo que distinguiria UTI
+  dentro de "Complementar" foi reclassificado pela Portaria SAES/MS mais de
+  uma vez e nao foi confirmado com uma tabela unica e estavel). Detalhes:
+  `docs/fase-5.3-relatorio.md`, `docs/sih-methodology.md` §12.
+- **Vulnerabilidade social (IPVS/SEADE) implementada na Fase 5.4, como
+  aproximacao aprovada explicitamente pelo usuario.** O unico recurso
+  maquina-legivel encontrado esta em grao de **setor censitario** (nao
+  municipio), 83,5 MiB, com licenca nao declarada na pagina do recurso
+  ("Nenhuma Licenca Fornecida") - diferente das demais fontes REAL do
+  projeto. `etl/ingest_vulnerabilidade.py` agrega por municipio via media
+  ponderada por populacao (82,9% de cobertura de setores) - um CALCULO
+  deste projeto, nao um produto oficial da SEADE, por isso gravado com
+  natureza `ESTIMATIVA` (nunca `OBSERVADO`). Ver
+  `docs/fase-5.4-relatorio.md`.
 - **`calculate-risk-demo.ts` precisou ser corrigido nesta fase** para
   filtrar explicitamente os municipios DEMO (`getMunicipios(prisma, {
   apenasDemo: true })`) - antes da correcao, o script processava tambem os

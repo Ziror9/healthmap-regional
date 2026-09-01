@@ -10,17 +10,24 @@
 import {
   getPrismaClient,
   getMunicipioById,
+  getRegiaoSaudeById,
   getCompetenciaById,
   getCompetenciaMaisRecente,
   getCompetenciaMaisRecenteComRiskScore,
+  getCompetenciaMaisRecenteComRiskScoreRegional,
   getRiskConfigMeta,
   resolveDefaultRiskConfigId,
   listOrigensDistintasRiskScore,
+  listOrigensDistintasRiskScoreRegional,
   listRiskScores,
+  listRiskScoresRegional,
   getRiskScoreMunicipio,
+  getRiskScoreRegiao,
   listRiskComponentes,
+  listRiskComponentesRegiao,
   type OrigemValor,
   type RiskScoreListItem,
+  type RiskScoreRegionalListItem,
 } from '@healthmap/db';
 import {
   buildPaginationMeta,
@@ -28,6 +35,7 @@ import {
   type RiskFiltroQuery,
   type RiskFiltroResolvidoDTO,
   type RiskScoreItemDTO,
+  type RiskScoreRegionalItemDTO,
 } from '@healthmap/contracts';
 import { HttpError } from '../types/http.js';
 
@@ -66,7 +74,14 @@ interface FiltrosResolvidos {
  *   mesma lista). Nenhum valor e hardcoded: a origem exibida em `meta`
  *   sempre vem do dado, nunca de uma constante no codigo.
  */
-async function resolverFiltros(query: RiskFiltroQuery): Promise<FiltrosResolvidos> {
+/**
+ * `grao` escolhe qual RiskScore consultar para resolver a competencia
+ * default e a ambiguidade de origem - municipal (Fase 3) ou regional (Fase
+ * 5.5). RiskConfig e o mesmo objeto para os dois graos (pesos + fonte de
+ * indicador nao variam por grao), so a resolucao de competencia/origem usa
+ * a tabela de RiskScore certa.
+ */
+async function resolverFiltros(query: RiskFiltroQuery, grao: 'municipal' | 'regional' = 'municipal'): Promise<FiltrosResolvidos> {
   let riskConfigId: number | null;
   if (query.riskConfigId !== undefined) {
     const config = await getRiskConfigMeta(prisma, query.riskConfigId);
@@ -86,7 +101,12 @@ async function resolverFiltros(query: RiskFiltroQuery): Promise<FiltrosResolvido
     }
     competenciaId = competencia.id;
   } else {
-    const maisRecenteComDado = riskConfigId !== null ? await getCompetenciaMaisRecenteComRiskScore(prisma, riskConfigId) : null;
+    const maisRecenteComDado =
+      riskConfigId === null
+        ? null
+        : grao === 'regional'
+          ? await getCompetenciaMaisRecenteComRiskScoreRegional(prisma, riskConfigId)
+          : await getCompetenciaMaisRecenteComRiskScore(prisma, riskConfigId);
     const maisRecente = maisRecenteComDado ?? (await getCompetenciaMaisRecente(prisma));
     if (!maisRecente) {
       throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', 'Nenhuma competencia cadastrada no banco.');
@@ -96,7 +116,10 @@ async function resolverFiltros(query: RiskFiltroQuery): Promise<FiltrosResolvido
 
   let origemResolvida: OrigemValor | null = query.origem ?? null;
   if (query.origem === undefined && riskConfigId !== null) {
-    const origens = await listOrigensDistintasRiskScore(prisma, { competenciaId, riskConfigId });
+    const origens =
+      grao === 'regional'
+        ? await listOrigensDistintasRiskScoreRegional(prisma, { competenciaId, riskConfigId })
+        : await listOrigensDistintasRiskScore(prisma, { competenciaId, riskConfigId });
     if (origens.length > 1) {
       throw new HttpError(
         409,
@@ -190,6 +213,95 @@ export async function listarComponentesRiskMunicipio(municipioId: number, query:
 
   const componentes = await listRiskComponentes(prisma, {
     municipioId,
+    competenciaId: filtros.competenciaId,
+    riskConfigId: filtros.riskConfigId,
+    origem: filtros.origemParaFiltro,
+  });
+
+  return { data: componentes, meta: { filtros: toFiltroDTO(filtros) } };
+}
+
+// -----------------------------------------------------------------------------
+// Grao REGIONAL (Fase 5.5) - mesmas 3 operacoes acima (ranking, detalhe,
+// componentes), trocando municipio por RegiaoSaude. Mesma regra: nunca
+// recalcula nada, so le RiskScoreRegional/RiskComponenteValorRegional ja
+// materializados por calculate-risk-regional.ts.
+// -----------------------------------------------------------------------------
+
+function toItemDTORegional(item: RiskScoreRegionalListItem): RiskScoreRegionalItemDTO {
+  return {
+    regiaoSaude: { id: item.regiaoSaudeId, nome: item.regiaoSaudeNome, codigo: item.regiaoSaudeCodigo },
+    competencia: { id: item.competenciaId, ano: item.competenciaAno, mes: item.competenciaMes },
+    riskConfigId: item.riskConfigId,
+    indice: item.indice,
+    classificacao: item.classificacao,
+    confiabilidade: item.confiabilidade,
+    natureza: item.natureza,
+    origem: item.origem,
+    calculadoEm: item.calculadoEm,
+  };
+}
+
+/** GET /api/risk/regioes - ranking de regioes de saude para a competencia/riskConfig resolvidos. */
+export async function listarRiskRegional(query: RiskFiltroQuery, paginacao: PaginationQuery) {
+  const filtros = await resolverFiltros(query, 'regional');
+
+  if (filtros.riskConfigId === null) {
+    return {
+      data: [] as RiskScoreRegionalItemDTO[],
+      meta: { filtros: toFiltroDTO(filtros), pagination: buildPaginationMeta(paginacao.page, paginacao.pageSize, 0) },
+    };
+  }
+
+  const skip = (paginacao.page - 1) * paginacao.pageSize;
+  const { items, total } = await listRiskScoresRegional(
+    prisma,
+    { competenciaId: filtros.competenciaId, riskConfigId: filtros.riskConfigId, origem: filtros.origemParaFiltro },
+    { skip, take: paginacao.pageSize },
+  );
+
+  return {
+    data: items.map(toItemDTORegional),
+    meta: { filtros: toFiltroDTO(filtros), pagination: buildPaginationMeta(paginacao.page, paginacao.pageSize, total) },
+  };
+}
+
+/** GET /api/risk/regioes/:regiaoSaudeId - RiskScore de uma regiao na competencia/riskConfig resolvidos. */
+export async function detalharRiskRegiao(regiaoSaudeId: number, query: RiskFiltroQuery) {
+  const regiao = await getRegiaoSaudeById(prisma, regiaoSaudeId);
+  if (!regiao) {
+    throw new HttpError(404, 'REGIAO_SAUDE_NAO_ENCONTRADA', `RegiaoSaude ${regiaoSaudeId} nao existe.`);
+  }
+
+  const filtros = await resolverFiltros(query, 'regional');
+  if (filtros.riskConfigId === null) {
+    return { data: null, meta: { filtros: toFiltroDTO(filtros) } };
+  }
+
+  const score = await getRiskScoreRegiao(prisma, {
+    regiaoSaudeId,
+    competenciaId: filtros.competenciaId,
+    riskConfigId: filtros.riskConfigId,
+    origem: filtros.origemParaFiltro,
+  });
+
+  return { data: score ? toItemDTORegional(score) : null, meta: { filtros: toFiltroDTO(filtros) } };
+}
+
+/** GET /api/risk/regioes/:regiaoSaudeId/components - componentes materializados de uma regiao. */
+export async function listarComponentesRiskRegiao(regiaoSaudeId: number, query: RiskFiltroQuery) {
+  const regiao = await getRegiaoSaudeById(prisma, regiaoSaudeId);
+  if (!regiao) {
+    throw new HttpError(404, 'REGIAO_SAUDE_NAO_ENCONTRADA', `RegiaoSaude ${regiaoSaudeId} nao existe.`);
+  }
+
+  const filtros = await resolverFiltros(query, 'regional');
+  if (filtros.riskConfigId === null) {
+    return { data: [], meta: { filtros: toFiltroDTO(filtros) } };
+  }
+
+  const componentes = await listRiskComponentesRegiao(prisma, {
+    regiaoSaudeId,
     competenciaId: filtros.competenciaId,
     riskConfigId: filtros.riskConfigId,
     origem: filtros.origemParaFiltro,

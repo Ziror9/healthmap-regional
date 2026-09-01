@@ -68,3 +68,28 @@ export const riskFiltroResolvidoSchema = z.object({
   origem: z.nativeEnum(Origem).nullable(),
 });
 export type RiskFiltroResolvidoDTO = z.infer<typeof riskFiltroResolvidoSchema>;
+
+/**
+ * Grao REGIONAL (Fase 5.5) - mesmo formato de riskScoreItemSchema, trocando
+ * municipio por regiaoSaude. RiskComponenteItemDTO/riskFiltroQuerySchema/
+ * riskFiltroResolvidoSchema sao reaproveitados sem mudanca (o grao nao afeta
+ * o formato do filtro nem do componente).
+ */
+const regiaoSaudeRefSchema = z.object({
+  id: z.number().int(),
+  nome: z.string(),
+  codigo: z.string(),
+});
+
+export const riskScoreRegionalItemSchema = z.object({
+  regiaoSaude: regiaoSaudeRefSchema,
+  competencia: competenciaRefSchema,
+  riskConfigId: z.number().int(),
+  indice: z.number().min(0).max(1),
+  classificacao: z.nativeEnum(ClassificacaoRisco),
+  confiabilidade: z.nativeEnum(Confiabilidade),
+  natureza: z.nativeEnum(Natureza),
+  origem: z.nativeEnum(Origem),
+  calculadoEm: z.string().datetime(),
+});
+export type RiskScoreRegionalItemDTO = z.infer<typeof riskScoreRegionalItemSchema>;

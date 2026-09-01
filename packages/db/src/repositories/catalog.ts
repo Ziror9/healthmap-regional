@@ -62,6 +62,14 @@ export async function listMunicipios(
   };
 }
 
+/** Fase 5.5 - valida a existencia de uma RegiaoSaude antes de resolver o Radar regional. */
+export async function getRegiaoSaudeById(prisma: PrismaClient, regiaoSaudeId: number): Promise<RegiaoSaudeRow | null> {
+  return prisma.regiaoSaude.findUnique({
+    where: { id: regiaoSaudeId },
+    select: { id: true, codigo: true, nome: true, uf: true },
+  });
+}
+
 export async function getMunicipioById(prisma: PrismaClient, municipioId: number): Promise<MunicipioRow | null> {
   const m = await prisma.municipio.findUnique({
     where: { id: municipioId },

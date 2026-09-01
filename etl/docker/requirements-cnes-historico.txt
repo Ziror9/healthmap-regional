@@ -1,0 +1,10 @@
+# Dependencias exclusivas da ingestao CNES historica (grupo LT, via pySUS -
+# etl/ingest_cnes_historico.py) - so instaladas dentro do container Linux
+# (etl/docker/Dockerfile.cnes_historico), nunca no Python principal do host.
+# Identicas a etl/docker/requirements-sih.txt (mesma biblioteca, mesmo
+# bloqueio de pyreaddbc no Windows) - ver etl/healthmap_etl/sources/sih.py.
+pysus>=2.8,<3
+pandas>=2.2,<3
+pyarrow>=17,<19
+psycopg[binary]>=3.1,<4
+python-dotenv>=1.0,<2

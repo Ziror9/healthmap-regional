@@ -34,6 +34,15 @@ ANO_CMPT/MES_CMPT para internacoes longas).
 
 Idempotente: upsert por chave natural (mesma unique constraint do schema).
 Reexecutar para a mesma competencia converge, nao duplica.
+
+FASE 5.5: alem dos fatos por municipio acima, este script tambem agrega o
+MESMO dataframe bruto (`valido`, antes de qualquer supressao) por
+REGIAO DE SAUDE (DRS) - gravado em tabelas paralelas
+(FatoInternacaoResidenciaRegional/FatoInternacaoLocalRegional). A supressao
+n<5 e decidida de novo, de forma independente, no grao regional - nunca
+derivada dos fatos municipais ja gravados (que ja tiveram celulas
+apagadas, nao so ocultadas - reagregar a partir deles perderia essa
+informacao para sempre, nao a recuperaria). Ver docs/fase-5.5-relatorio.md.
 """
 
 from __future__ import annotations
@@ -177,6 +186,45 @@ def agregar_residencia(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int
     return agregado, sem_municipio
 
 
+def agregar_residencia_regional(df: pd.DataFrame, regiao_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
+    """Mesmo dataframe bruto de agregar_residencia, agregado por RegiaoSaude em vez de Municipio - grao e supressao independentes."""
+    df = df.copy()
+    df["regiaoSaudeId"] = df["municipioResidenciaCodigo"].map(regiao_id_por_codigo6)
+    sem_regiao = int(df["regiaoSaudeId"].isna().sum())
+    df = df[df["regiaoSaudeId"].notna()]
+    if df.empty:
+        return df, sem_regiao
+
+    agregado = (
+        df.groupby(["regiaoSaudeId", "faixaEtaria", "sexo"], as_index=False)
+        .agg(internacoes=("N_AIH", "count"), obitos=("obito", "sum"), diasPermanencia=("diasPermanencia", "sum"))
+    )
+    agregado["regiaoSaudeId"] = agregado["regiaoSaudeId"].astype(int)
+    return agregado, sem_regiao
+
+
+def agregar_local_regional(df: pd.DataFrame, regiao_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
+    """Mesmo dataframe bruto de agregar_local, agregado por RegiaoSaude em vez de Municipio - grao e supressao independentes."""
+    df = df.copy()
+    df["regiaoSaudeId"] = df["municipioInternacaoCodigo"].map(regiao_id_por_codigo6)
+    sem_regiao = int(df["regiaoSaudeId"].isna().sum())
+    df = df[df["regiaoSaudeId"].notna()]
+    if df.empty:
+        return df, sem_regiao
+
+    agregado = (
+        df.groupby(["regiaoSaudeId", "faixaEtaria", "sexo"], as_index=False)
+        .agg(
+            internacoes=("N_AIH", "count"),
+            obitos=("obito", "sum"),
+            pacientesDia=("diasPermanencia", "sum"),
+            diariasUti=("diariasUti", "sum"),
+        )
+    )
+    agregado["regiaoSaudeId"] = agregado["regiaoSaudeId"].astype(int)
+    return agregado, sem_regiao
+
+
 def agregar_local(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
     df = df.copy()
     df["municipioId"] = df["municipioInternacaoCodigo"].map(municipio_id_por_codigo6)
@@ -305,6 +353,97 @@ def gravar_local(
     return gravados, rejeitados
 
 
+def gravar_residencia_regional(
+    conn: psycopg.Connection, agregado: pd.DataFrame, competencia_id: int, grupo_cid_id: int, execucao_id: str
+) -> tuple[int, int]:
+    agora = datetime.now(timezone.utc)
+    gravados = 0
+    rejeitados = 0
+    with conn.cursor() as cur:
+        for linha in agregado.itertuples(index=False):
+            suprimido = linha.internacoes < LIMIAR_SUPRESSAO
+            if not suprimido and not _cell_valida(
+                conn, execucao_id, "sih_residencia_regional_valores_nao_negativos",
+                {"internacoes": int(linha.internacoes), "obitos": int(linha.obitos), "diasPermanencia": int(linha.diasPermanencia)},
+            ):
+                rejeitados += 1
+                continue
+            cur.execute(
+                """
+                INSERT INTO gold."FatoInternacaoResidenciaRegional"
+                    ("regiaoSaudeResidenciaId", "competenciaId", "grupoCidId", "faixaEtaria", sexo,
+                     internacoes, obitos, "diasPermanencia", suprimido, origem, "execucaoId", "updatedAt")
+                VALUES (%s, %s, %s, %s::gold."FaixaEtaria", %s::gold."Sexo", %s, %s, %s, %s, 'REAL', %s, %s)
+                ON CONFLICT ("regiaoSaudeResidenciaId", "competenciaId", "grupoCidId", "faixaEtaria", sexo)
+                DO UPDATE SET
+                    internacoes = EXCLUDED.internacoes,
+                    obitos = EXCLUDED.obitos,
+                    "diasPermanencia" = EXCLUDED."diasPermanencia",
+                    suprimido = EXCLUDED.suprimido,
+                    origem = EXCLUDED.origem,
+                    "execucaoId" = EXCLUDED."execucaoId",
+                    "updatedAt" = EXCLUDED."updatedAt"
+                """,
+                (
+                    int(linha.regiaoSaudeId), competencia_id, grupo_cid_id, linha.faixaEtaria, linha.sexo,
+                    None if suprimido else int(linha.internacoes),
+                    None if suprimido else int(linha.obitos),
+                    None if suprimido else int(linha.diasPermanencia),
+                    suprimido, execucao_id, agora,
+                ),
+            )
+            gravados += 1
+    return gravados, rejeitados
+
+
+def gravar_local_regional(
+    conn: psycopg.Connection, agregado: pd.DataFrame, competencia_id: int, grupo_cid_id: int, execucao_id: str
+) -> tuple[int, int]:
+    agora = datetime.now(timezone.utc)
+    gravados = 0
+    rejeitados = 0
+    with conn.cursor() as cur:
+        for linha in agregado.itertuples(index=False):
+            suprimido = linha.internacoes < LIMIAR_SUPRESSAO
+            if not suprimido and not _cell_valida(
+                conn, execucao_id, "sih_local_regional_valores_nao_negativos",
+                {
+                    "internacoes": int(linha.internacoes), "obitos": int(linha.obitos),
+                    "pacientesDia": int(linha.pacientesDia), "diariasUti": int(linha.diariasUti),
+                },
+            ):
+                rejeitados += 1
+                continue
+            cur.execute(
+                """
+                INSERT INTO gold."FatoInternacaoLocalRegional"
+                    ("regiaoSaudeInternacaoId", "competenciaId", "grupoCidId", "faixaEtaria", sexo,
+                     internacoes, "pacientesDia", "diariasUti", obitos, suprimido, origem, "execucaoId", "updatedAt")
+                VALUES (%s, %s, %s, %s::gold."FaixaEtaria", %s::gold."Sexo", %s, %s, %s, %s, %s, 'REAL', %s, %s)
+                ON CONFLICT ("regiaoSaudeInternacaoId", "competenciaId", "grupoCidId", "faixaEtaria", sexo)
+                DO UPDATE SET
+                    internacoes = EXCLUDED.internacoes,
+                    "pacientesDia" = EXCLUDED."pacientesDia",
+                    "diariasUti" = EXCLUDED."diariasUti",
+                    obitos = EXCLUDED.obitos,
+                    suprimido = EXCLUDED.suprimido,
+                    origem = EXCLUDED.origem,
+                    "execucaoId" = EXCLUDED."execucaoId",
+                    "updatedAt" = EXCLUDED."updatedAt"
+                """,
+                (
+                    int(linha.regiaoSaudeId), competencia_id, grupo_cid_id, linha.faixaEtaria, linha.sexo,
+                    None if suprimido else int(linha.internacoes),
+                    None if suprimido else int(linha.pacientesDia),
+                    None if suprimido else int(linha.diariasUti),
+                    None if suprimido else int(linha.obitos),
+                    suprimido, execucao_id, agora,
+                ),
+            )
+            gravados += 1
+    return gravados, rejeitados
+
+
 def run() -> None:
     conn = db.obter_conexao()
     try:
@@ -321,6 +460,8 @@ def run() -> None:
         with conn.cursor() as cur:
             cur.execute('SELECT id, "codigoIbge6" FROM silver."Municipio" WHERE "codigoIbge7" LIKE %s', ("35%",))
             municipio_id_por_codigo6 = {codigo6: mid for mid, codigo6 in cur.fetchall()}
+            cur.execute('SELECT "codigoIbge6", "regiaoSaudeId" FROM silver."Municipio" WHERE "codigoIbge7" LIKE %s', ("35%",))
+            regiao_id_por_codigo6 = {codigo6: regiao_id for codigo6, regiao_id in cur.fetchall()}
             cur.execute('SELECT id FROM silver."GrupoCid" WHERE agrupamento = %s', ("TODAS_NEOPLASIAS_MALIGNAS",))
             grupo_cid_row = cur.fetchone()
             assert grupo_cid_row is not None, "GrupoCid TODAS_NEOPLASIAS_MALIGNAS nao encontrado - rode o seed primeiro"
@@ -403,6 +544,45 @@ def run() -> None:
                 conn, agregado_residencia, competencia_id, grupo_cid_id, execucao.id
             )
             gravados_local, rejeitados_local = gravar_local(conn, agregado_local, competencia_id, grupo_cid_id, execucao.id)
+
+            # Fase 5.5: agregacao REGIONAL independente, a partir do MESMO
+            # dataframe bruto `valido` (nunca dos fatos municipais ja
+            # gravados acima - ver docstring do modulo). Execucao propria
+            # (mesma fonte/competencia/pipeline) para linhagem clara de
+            # "essa carga regional teve sucesso?" separada da municipal.
+            execucao_regional = lineage.iniciar_execucao(
+                conn, fonte_dados_chave=FONTE_SIH, competencia_id=competencia_id, versao_pipeline=VERSAO_PIPELINE
+            )
+            agregado_residencia_regional, sem_regiao_residencia = agregar_residencia_regional(valido, regiao_id_por_codigo6)
+            agregado_local_regional, sem_regiao_local = agregar_local_regional(valido, regiao_id_por_codigo6)
+            lineage.registrar_qualidade_check(
+                conn, execucao_id=execucao_regional.id, regra="sih_regiao_residencia_conhecida",
+                severidade="ALERTA", passou=sem_regiao_residencia == 0, linhas_afetadas=sem_regiao_residencia,
+                detalhe=f"{sem_regiao_residencia} registro(s) sem regiao de saude mapeada (residencia)" if sem_regiao_residencia else None,
+            )
+            lineage.registrar_qualidade_check(
+                conn, execucao_id=execucao_regional.id, regra="sih_regiao_internacao_conhecida",
+                severidade="ALERTA", passou=sem_regiao_local == 0, linhas_afetadas=sem_regiao_local,
+                detalhe=f"{sem_regiao_local} registro(s) sem regiao de saude mapeada (internacao)" if sem_regiao_local else None,
+            )
+            gravados_residencia_regional, rejeitados_residencia_regional = gravar_residencia_regional(
+                conn, agregado_residencia_regional, competencia_id, grupo_cid_id, execucao_regional.id
+            )
+            gravados_local_regional, rejeitados_local_regional = gravar_local_regional(
+                conn, agregado_local_regional, competencia_id, grupo_cid_id, execucao_regional.id
+            )
+            execucao_regional.linhas_processadas = gravados_residencia_regional + gravados_local_regional
+            execucao_regional.linhas_rejeitadas = (
+                sem_regiao_residencia + sem_regiao_local + rejeitados_residencia_regional + rejeitados_local_regional
+            )
+            execucao_regional.finalizar(
+                status="SUCESSO" if execucao_regional.linhas_rejeitadas == 0 else "PARCIAL"
+            )
+            conn.commit()
+            print(
+                f"[sih] competencia {ano}-{mes:02d}: [REGIONAL] FatoInternacaoResidenciaRegional="
+                f"{gravados_residencia_regional} celulas, FatoInternacaoLocalRegional={gravados_local_regional} celulas"
+            )
 
             # rejeitados_pre_agregacao ja e um total sem contagem dupla (ver
             # carregar_e_normalizar). As rejeicoes de municipio/valores

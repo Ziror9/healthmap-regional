@@ -1,0 +1,22 @@
+# Ambiente isolado so para a ingestao REAL do CNES historico, grupo LT
+# (etl/ingest_cnes_historico.py). Mesmo motivo e mesma solucao do
+# Dockerfile.sih (pyreaddbc so tem wheel Linux) - arquivo separado, nao
+# reaproveitado, porque cada imagem copia so o script que precisa rodar
+# (imagem menor, sem acoplar as duas ingestoes).
+#
+# Uso, a partir da raiz do repositorio:
+#
+#   docker build -f etl/docker/Dockerfile.cnes_historico -t healthmap-etl-cnes-historico .
+#   docker run --rm -e DATABASE_URL="postgresql://...@host.docker.internal:5432/healthmap?schema=public" healthmap-etl-cnes-historico
+
+FROM python:3.11-slim
+
+WORKDIR /etl
+
+COPY etl/docker/requirements-cnes-historico.txt ./requirements-cnes-historico.txt
+RUN pip install --no-cache-dir -r requirements-cnes-historico.txt
+
+COPY etl/healthmap_etl ./healthmap_etl
+COPY etl/ingest_cnes_historico.py ./ingest_cnes_historico.py
+
+CMD ["python", "ingest_cnes_historico.py"]
