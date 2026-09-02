@@ -255,6 +255,14 @@ ver `docs/known-limitations.md`.
 - Mortalidade populacional não deve ser interpretada como letalidade
   hospitalar — são conceitos diferentes, documentado explicitamente na
   `IndicadorDefinicao`.
+- Taxas de municípios pequenos podem ser estatisticamente instáveis mesmo
+  acima do limiar de supressão (n=5-6 óbitos com população pequena produz
+  taxa volátil) — nenhum tratamento estatístico adicional (intervalo de
+  confiança, suavização) foi aplicado.
+- O indicador é observacional — não deve ser interpretado isoladamente
+  como qualidade assistencial; reflete incidência da doença, acesso a
+  diagnóstico/tratamento e fatores socioeconômicos da população residente,
+  não o desempenho de nenhum serviço de saúde específico.
 - `fase5.3.test.ts`/`fase5.4.test.ts`/`fase5.5.test.ts` têm 6 asserções
   desatualizadas (ver seção 9) — não corrigidas nesta fase por serem fora
   do escopo de SIM/mortalidade.

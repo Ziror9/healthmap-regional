@@ -30,7 +30,18 @@
   `TAXA_INTERNACAO_10K_HAB`), entao o denominador nao existe. Mortalidade
   populacional (obitos/populacao residente) NAO deve ser interpretada como
   letalidade hospitalar (obitos/internados) - sao conceitos epidemiologicos
-  diferentes. Ver `docs/fase-5.6-relatorio.md`.
+  diferentes. **Taxas de municipios pequenos podem ser estatisticamente
+  instaveis mesmo acima do limiar de supressao** - um municipio com n=5 ou
+  6 obitos e populacao pequena produz uma taxa por 10k habitantes volatil
+  (uma unica unidade a mais/menos muda o valor de forma desproporcional),
+  problema distinto da supressao em si (que so esconde n<5, nao estabiliza
+  o que fica acima do limiar) - nenhum tratamento estatistico adicional
+  (ex.: intervalo de confianca, suavizacao) foi aplicado nesta fase. **O
+  indicador e observacional e nao deve ser interpretado isoladamente como
+  qualidade assistencial** - mortalidade populacional reflete uma
+  combinacao de incidencia da doenca, acesso a diagnostico/tratamento e
+  fatores socioeconomicos da populacao residente, nao o desempenho de
+  nenhum servico de saude especifico. Ver `docs/fase-5.6-relatorio.md`.
 - **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
   Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
   entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase
