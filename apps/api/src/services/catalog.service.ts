@@ -11,8 +11,21 @@ import {
   listIndicadorDefinicoes as dbListIndicadorDefinicoes,
   listIndicadoresDoMunicipio,
   listRiskScoresDoMunicipio,
+  getInternacoesAnuaisMunicipio,
+  getObitosAnuaisMunicipio,
+  getCompetencias,
+  getAnosComObitoResidenciaReal,
+  getAnosComIndicadorMunicipal,
+  listInternacoesAnualPorMunicipio,
+  listObitosAnualPorMunicipio,
+  listIndicadorMunicipalTodos,
+  listRiskScoreTodos,
+  resolveDefaultRiskConfigId,
+  getAnosComRiskScore,
+  getCompetenciaMaisRecenteComRiskScorePorAno,
+  type RadarMunicipalValor,
 } from '@healthmap/db';
-import { buildPaginationMeta, type PaginationQuery } from '@healthmap/contracts';
+import { buildPaginationMeta, type PaginationQuery, type RadarMunicipalFiltroQuery, type RadarMunicipalIndicador } from '@healthmap/contracts';
 import { HttpError } from '../types/http.js';
 import type { CompetenciasFiltro, MunicipioDetalheFiltro, MunicipiosFiltro } from '../validation/query.js';
 
@@ -33,17 +46,25 @@ export async function detalharMunicipio(municipioId: number, filtros: MunicipioD
     throw new HttpError(404, 'MUNICIPIO_NAO_ENCONTRADO', `Municipio ${municipioId} nao existe.`);
   }
 
-  const [riscos, indicadoresTodos] = await Promise.all([
+  const [riscos, indicadoresTodos, internacoesAnuaisTodas, obitosAnuaisTodas] = await Promise.all([
     listRiskScoresDoMunicipio(prisma, {
       municipioId,
       competenciaId: filtros.competenciaId,
       riskConfigId: filtros.riskConfigId,
     }),
     listIndicadoresDoMunicipio(prisma, municipioId),
+    // Fase 5.7: totais brutos anuais (nao sao IndicadorMunicipal - sao o
+    // fato agregado em si, ver packages/db/src/repositories/radarQuery.ts).
+    getInternacoesAnuaisMunicipio(prisma, municipioId),
+    getObitosAnuaisMunicipio(prisma, municipioId),
   ]);
 
   const indicadores =
     filtros.ano === undefined ? indicadoresTodos : indicadoresTodos.filter((i) => i.ano === filtros.ano);
+  const internacoesAnuais =
+    filtros.ano === undefined ? internacoesAnuaisTodas : internacoesAnuaisTodas.filter((i) => i.ano === filtros.ano);
+  const obitosOncologicosAnuais =
+    filtros.ano === undefined ? obitosAnuaisTodas : obitosAnuaisTodas.filter((i) => i.ano === filtros.ano);
 
   return {
     ...municipio,
@@ -57,6 +78,8 @@ export async function detalharMunicipio(municipioId: number, filtros: MunicipioD
       origem: r.origem,
     })),
     indicadores,
+    internacoesAnuais,
+    obitosOncologicosAnuais,
   };
 }
 
@@ -73,4 +96,129 @@ export async function listarCompetencias(paginacao: PaginationQuery, filtros: Co
 export async function listarIndicadores(paginacao: PaginationQuery) {
   const { items, total } = await dbListIndicadorDefinicoes(prisma, toSkipTake(paginacao));
   return { data: items, meta: { pagination: buildPaginationMeta(paginacao.page, paginacao.pageSize, total) } };
+}
+
+// -----------------------------------------------------------------------------
+// Radar Municipal (Fase 5.7) - GET /api/indicadores/municipios. Devolve os
+// 645 municipios REAL de uma vez (nunca 1 requisicao por municipio) para o
+// indicador selecionado. So orquestra o que ja existe (packages/db/src/
+// repositories/radarQuery.ts) - nenhum calculo, nenhuma RiskConfig nova.
+// -----------------------------------------------------------------------------
+
+const UNIDADE_POR_INDICADOR: Record<RadarMunicipalIndicador, string> = {
+  INTERNACOES: 'internações no ano',
+  TAXA_INTERNACAO_10K_HAB: 'por 10.000 habitantes',
+  OBITOS_ONCOLOGICOS: 'óbitos oncológicos no ano',
+  TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB: 'por 10.000 habitantes',
+  RISK_SCORE: 'índice do Radar (0–1)',
+  VULNERABILIDADE: 'grupo IPVS (1=menor risco..7=maior risco)',
+};
+
+const INDICADOR_DEFINICAO_CHAVE: Record<'TAXA_INTERNACAO_10K_HAB' | 'TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB' | 'VULNERABILIDADE', string> = {
+  TAXA_INTERNACAO_10K_HAB: 'TAXA_INTERNACAO_10K_HAB',
+  TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB: 'TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB',
+  VULNERABILIDADE: 'IPVS_MEDIA_PONDERADA_SETOR',
+};
+
+/** Resolve o ano a usar: o pedido pelo cliente (se existir na base) ou o mais recente disponivel. Nunca inventa um ano fora do que a base tem. */
+function resolverAno(anoSolicitado: number | undefined, anosDisponiveis: number[]): number | null {
+  if (anoSolicitado !== undefined) {
+    if (!anosDisponiveis.includes(anoSolicitado)) {
+      throw new HttpError(404, 'ANO_NAO_DISPONIVEL', `Nenhum dado para o ano ${anoSolicitado} com este indicador.`, { anosDisponiveis });
+    }
+    return anoSolicitado;
+  }
+  return anosDisponiveis.length > 0 ? anosDisponiveis[anosDisponiveis.length - 1]! : null;
+}
+
+function toRadarItemDTO(item: RadarMunicipalValor, origem: 'REAL' | 'DEMO' | null) {
+  return {
+    municipio: item.municipio,
+    valor: item.valor,
+    disponivel: item.disponivel,
+    motivo: item.motivo,
+    origem: item.disponivel ? origem : null,
+  };
+}
+
+function respostaVazia(indicador: RadarMunicipalIndicador, anosDisponiveis: number[], riskConfigId: number | null) {
+  return {
+    data: [] as ReturnType<typeof toRadarItemDTO>[],
+    meta: {
+      filtros: {
+        indicador,
+        ano: null,
+        anosDisponiveis,
+        riskConfigId,
+        origem: null,
+        unidade: UNIDADE_POR_INDICADOR[indicador],
+      },
+    },
+  };
+}
+
+export async function listarIndicadorMunicipios(filtro: RadarMunicipalFiltroQuery) {
+  const { indicador } = filtro;
+  const unidade = UNIDADE_POR_INDICADOR[indicador];
+  const origem = filtro.origem ?? 'REAL';
+
+  if (indicador === 'RISK_SCORE') {
+    const riskConfigId = filtro.riskConfigId ?? (await resolveDefaultRiskConfigId(prisma));
+    if (riskConfigId === null) return respostaVazia(indicador, [], null);
+
+    const anosDisponiveis = await getAnosComRiskScore(prisma, riskConfigId, origem);
+    const ano = resolverAno(filtro.ano, anosDisponiveis);
+    if (ano === null) return respostaVazia(indicador, anosDisponiveis, riskConfigId);
+
+    const competencia = await getCompetenciaMaisRecenteComRiskScorePorAno(prisma, riskConfigId, ano);
+    if (!competencia) {
+      return {
+        data: [],
+        meta: { filtros: { indicador, ano, anosDisponiveis, riskConfigId, origem: null, unidade } },
+      };
+    }
+
+    const itens = await listRiskScoreTodos(prisma, { competenciaId: competencia.id, riskConfigId, origem });
+    return {
+      data: itens.map((i) => toRadarItemDTO(i, origem)),
+      meta: { filtros: { indicador, ano, anosDisponiveis, riskConfigId, origem, unidade } },
+    };
+  }
+
+  if (indicador === 'INTERNACOES') {
+    const competencias = await getCompetencias(prisma, { apenasReal: true });
+    const anosDisponiveis = [...new Set(competencias.map((c) => c.ano))].sort((a, b) => a - b);
+    const ano = resolverAno(filtro.ano, anosDisponiveis);
+    if (ano === null) return respostaVazia(indicador, anosDisponiveis, null);
+
+    const itens = await listInternacoesAnualPorMunicipio(prisma, ano);
+    return {
+      data: itens.map((i) => toRadarItemDTO(i, origem)),
+      meta: { filtros: { indicador, ano, anosDisponiveis, riskConfigId: null, origem, unidade } },
+    };
+  }
+
+  if (indicador === 'OBITOS_ONCOLOGICOS') {
+    const anosDisponiveis = await getAnosComObitoResidenciaReal(prisma);
+    const ano = resolverAno(filtro.ano, anosDisponiveis);
+    if (ano === null) return respostaVazia(indicador, anosDisponiveis, null);
+
+    const itens = await listObitosAnualPorMunicipio(prisma, ano);
+    return {
+      data: itens.map((i) => toRadarItemDTO(i, origem)),
+      meta: { filtros: { indicador, ano, anosDisponiveis, riskConfigId: null, origem, unidade } },
+    };
+  }
+
+  // TAXA_INTERNACAO_10K_HAB | TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB | VULNERABILIDADE
+  const indicadorDefinicaoId = INDICADOR_DEFINICAO_CHAVE[indicador];
+  const anosDisponiveis = await getAnosComIndicadorMunicipal(prisma, indicadorDefinicaoId, origem);
+  const ano = resolverAno(filtro.ano, anosDisponiveis);
+  if (ano === null) return respostaVazia(indicador, anosDisponiveis, null);
+
+  const itens = await listIndicadorMunicipalTodos(prisma, indicadorDefinicaoId, ano);
+  return {
+    data: itens.map((i) => toRadarItemDTO(i, origem)),
+    meta: { filtros: { indicador, ano, anosDisponiveis, riskConfigId: null, origem, unidade } },
+  };
 }

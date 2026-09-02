@@ -5,6 +5,9 @@ import type {
   MunicipioDetalheDTO,
   MunicipioResumoDTO,
   PaginationMeta,
+  RadarMunicipalFiltroResolvidoDTO,
+  RadarMunicipalIndicador,
+  RadarMunicipalItemDTO,
   RegiaoSaudeDTO,
   RiskComponenteItemDTO,
   RiskFiltroResolvidoDTO,
@@ -156,4 +159,19 @@ export async function getRiskComponentes(
   params: RiskFiltros = {},
 ): Promise<RiskComponentesEnvelope> {
   return fetchApi(`/api/risk/${municipioId}/components${toQueryString(params)}`);
+}
+
+/** Radar Municipal (Fase 5.7). Sem paginacao: devolve os 645 municipios REAL de uma vez para o indicador selecionado - nao pagina (nunca 1 requisicao por municipio). */
+export interface RadarMunicipalEnvelope {
+  data: RadarMunicipalItemDTO[];
+  meta: { filtros: RadarMunicipalFiltroResolvidoDTO };
+}
+
+export async function getIndicadorMunicipios(params: {
+  indicador: RadarMunicipalIndicador;
+  ano?: number;
+  riskConfigId?: number;
+  origem?: 'REAL' | 'DEMO';
+}): Promise<RadarMunicipalEnvelope> {
+  return fetchApi(`/api/indicadores/municipios${toQueryString(params)}`);
 }

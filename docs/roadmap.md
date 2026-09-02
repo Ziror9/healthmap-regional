@@ -597,6 +597,68 @@ os da validacao previa, RiskScore comprovadamente inalterado por teste.
 
 ---
 
+## Fase 5.7 - Radar Municipal (mapa interativo) `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Primeira visualizacao territorial interativa: mapa dos 645
+municipios REAL de SP, coloridos por um indicador a escolha (internacoes,
+taxa de internacao, obitos oncologicos, mortalidade oncologica, RiskScore,
+vulnerabilidade), com tooltip, ranking ordenavel e painel de detalhamento
+ao clicar. Nenhum indicador novo, nenhuma fonte nova, nenhum recalculo -
+so uma nova forma de ler dado ja materializado pelas Fases 5.2-5.6.
+
+**Entregas.**
+
+- `GET /api/indicadores/municipios` (route -> controller -> service ->
+  packages/db, nenhum SQL em apps/api) - devolve os 645 municipios REAL de
+  uma vez para o indicador+ano selecionados, nunca 1 requisicao por
+  municipio; `anosDisponiveis` sempre calculado a partir do banco, nunca
+  inventado;
+- `GET /api/municipios/:id` estendido (contrato aditivo) com
+  `internacoesAnuais`/`obitosOncologicosAnuais` - os 2 totais brutos que
+  faltavam para o painel de detalhamento;
+- `packages/db/src/repositories/radarQuery.ts` (novo) - so orquestra
+  agregados ja existentes (`getAgregadoInternacaoResidenciaAnual`,
+  `getAgregadoObitoResidenciaAnual`, `getIndicadorMunicipalPorDefinicao`,
+  `listRiskScores`), nenhuma segunda implementacao de agregacao/supressao;
+- `apps/web/components/charts/map.tsx` (`MapaSP`) generalizado com props
+  opcionais de cor/tooltip/clique - default identico ao anterior, zero
+  regressao em `/` e `/radar`;
+- `apps/web/app/radar-municipal/page.tsx` (rota nova, adicionada a
+  navegacao) - mapa + ranking ordenavel (maior<->menor) + painel de
+  detalhamento com os 6 indicadores, "Nao disponivel" nunca 0;
+- 9 testes de integracao (`apps/api/src/__tests__/indicadores-municipios.test.ts`):
+  cobertura IBGE, supressao nunca vira 0, filtro de ano rejeita ano
+  inexistente (404), RiskScore comprovadamente nao recalculado (contagem
+  de RiskConfig/RiskComponenteValor identica antes/depois);
+- decisao registrada: RiskScore nao tem grao anual nativo (e por
+  competencia/mes) - `getCompetenciaMaisRecenteComRiskScorePorAno` resolve
+  a competencia mais recente DENTRO do ano selecionado com RiskScore, sem
+  inventar um "RiskScore anual" novo (mesma filosofia de resolucao de
+  default ja usada desde a Fase 3).
+
+Detalhes completos: [`docs/fase-5.7-relatorio.md`](fase-5.7-relatorio.md).
+
+**Dependencias.** Fase 5.6.
+
+**Nao entregue nesta rodada:**
+
+- `INTERNACOES`/`TAXA_INTERNACAO_10K_HAB` herdam a limitacao de supressao
+  de grao fino ja documentada (cobertura de 1 municipio/ano) - nao
+  corrigida aqui, fora de escopo (exigiria o mesmo pivo de grao anual da
+  Fase 5.6, decisao metodologica separada);
+- Sem persistencia de filtro na URL (diferente de `/radar`/`/`);
+- Sem testes automatizados de frontend (mesma decisao ja registrada desde
+  a Fase 4 - `apps/web` nao tem framework de teste, nao criado agora sem
+  necessidade).
+
+**Criterio de conclusao.** Mapa territorial interativo funcionando com os 6
+indicadores, RiskScore comprovadamente inalterado, testes/typecheck/lint/
+build passando. Atingido - validado manualmente no navegador (6/6
+indicadores, tooltip, clique, ranking, painel de detalhamento) e por teste
+automatizado.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

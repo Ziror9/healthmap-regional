@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, BarChart3, BookOpen, Info, type LucideIcon, Map as MapIcon, Menu, X } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Info, type LucideIcon, Map as MapIcon, Menu, Radar, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -15,6 +15,7 @@ interface NavItem {
 const NAV_PRINCIPAL: NavItem[] = [
   { href: '/', label: 'Visão Geral', icon: BarChart3 },
   { href: '/radar', label: 'Radar de Risco', icon: Activity },
+  { href: '/radar-municipal', label: 'Radar Municipal', icon: Radar },
   { href: '/municipios', label: 'Municípios', icon: MapIcon },
   { href: '/metodologia', label: 'Metodologia', icon: BookOpen },
 ];

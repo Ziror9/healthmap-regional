@@ -22,3 +22,4 @@ export type { DatabaseConnectionResult } from './connection.js';
 export * from './repositories/risk.js';
 export * from './repositories/catalog.js';
 export * from './repositories/riskQuery.js';
+export * from './repositories/radarQuery.js';

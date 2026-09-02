@@ -42,6 +42,16 @@
   combinacao de incidencia da doenca, acesso a diagnostico/tratamento e
   fatores socioeconomicos da populacao residente, nao o desempenho de
   nenhum servico de saude especifico. Ver `docs/fase-5.6-relatorio.md`.
+- **Radar Municipal (Fase 5.7) - primeira visualizacao territorial
+  interativa, so leitura.** Mapa dos 645 municipios REAL coloridos por 1 de
+  6 indicadores (`GET /api/indicadores/municipios`). `INTERNACOES`/
+  `TAXA_INTERNACAO_10K_HAB` herdam a mesma limitacao de supressao de grao
+  fino ja documentada abaixo (so 1 municipio/ano nao suprimido) - o mapa
+  exibe isso honestamente ("1 de 645 municipios com dado disponivel"), nao
+  esconde. `VULNERABILIDADE` fica fixa em 2022 (ano do IPVS/Censo usado).
+  RiskScore nao tem grao anual proprio - o filtro "Ano" resolve para a
+  competencia mais recente daquele ano com RiskScore calculado, sem criar
+  metodologia nova. Ver `docs/fase-5.7-relatorio.md`.
 - **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
   Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
   entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase

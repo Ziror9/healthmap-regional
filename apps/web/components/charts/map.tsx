@@ -120,10 +120,25 @@ function geometriaParaPath(geometry: GeoJsonFeature['geometry'], latMedia: numbe
 export function MapaSP({
   municipios,
   buildHref,
+  corPorCodigo,
+  tooltipPorCodigo,
+  onClickMunicipio,
 }: {
   municipios: MunicipioNoMapa[];
-  /** Constroi o href do detalhe do municipio preservando a competencia/origem selecionadas. Default: sem filtro. */
+  /** Constroi o href do detalhe do municipio preservando a competencia/origem selecionadas. Default: sem filtro. Ignorado se onClickMunicipio for informado. */
   buildHref?: (municipioId: number) => string;
+  /**
+   * Fase 5.7 (Radar Municipal): sobrescreve a cor por classificacao de risco
+   * (default) por uma escala generica (ex.: quantil de qualquer indicador -
+   * ver lib/radar-municipal-color.ts). Recebe o codigoIbge7 (mesma chave do
+   * GeoJSON), nao o municipio inteiro - mantem este componente sem saber o
+   * que esta sendo colorido.
+   */
+  corPorCodigo?: (codigoIbge7: string) => string;
+  /** Sobrescreve o texto do tooltip nativo (<title>) - default: nome + classificacao de risco. */
+  tooltipPorCodigo?: (codigoIbge7: string, municipio: MunicipioNoMapa) => string;
+  /** Sobrescreve o clique (default: navega para /municipios/:id via buildHref). Uso: selecionar sem navegar (Radar Municipal). */
+  onClickMunicipio?: (municipio: MunicipioNoMapa) => void;
 }) {
   const router = useRouter();
   const [geo, setGeo] = useState<GeoJsonCollection | null>(null);
@@ -198,27 +213,32 @@ export function MapaSP({
           const municipio = municipioPorCodigo.get(codigo);
           const display = municipio?.classificacao ? getClassificacaoDisplay(municipio.classificacao) : null;
           const emHover = hoverCodigo === codigo;
+          const corPadrao = municipio?.classificacao ? COR_PREENCHIMENTO_MAPA[municipio.classificacao] : 'fill-muted';
+          const tooltipPadrao = municipio
+            ? `${municipio.nome}${display ? ` — ${display.label} (nível ${display.nivel}/5)` : ' — sem índice REAL calculado'}`
+            : codigo;
           return (
             <path
               key={codigo}
               d={d}
               className={cn(
                 'cursor-pointer stroke-surface transition-opacity',
-                municipio?.classificacao ? COR_PREENCHIMENTO_MAPA[municipio.classificacao] : 'fill-muted',
+                corPorCodigo ? corPorCodigo(codigo) : corPadrao,
                 emHover && 'opacity-80',
               )}
               strokeWidth={0.5}
               onMouseEnter={() => setHoverCodigo(codigo)}
               onMouseLeave={() => setHoverCodigo((atual) => (atual === codigo ? null : atual))}
               onClick={() => {
-                if (municipio) router.push(buildHref ? buildHref(municipio.id) : `/municipios/${municipio.id}`);
+                if (!municipio) return;
+                if (onClickMunicipio) {
+                  onClickMunicipio(municipio);
+                  return;
+                }
+                router.push(buildHref ? buildHref(municipio.id) : `/municipios/${municipio.id}`);
               }}
             >
-              <title>
-                {municipio
-                  ? `${municipio.nome}${display ? ` — ${display.label} (nível ${display.nivel}/5)` : ' — sem índice REAL calculado'}`
-                  : codigo}
-              </title>
+              <title>{municipio && tooltipPorCodigo ? tooltipPorCodigo(codigo, municipio) : tooltipPadrao}</title>
             </path>
           );
         })}

@@ -1,6 +1,13 @@
 /** Schemas de query string por endpoint. So parsing/validacao HTTP - nenhuma regra de negocio aqui. */
 import { z } from 'zod';
-import { paginationQuerySchema, riskFiltroQuerySchema, type PaginationQuery, type RiskFiltroQuery } from '@healthmap/contracts';
+import {
+  paginationQuerySchema,
+  radarMunicipalFiltroQuerySchema,
+  riskFiltroQuerySchema,
+  type PaginationQuery,
+  type RadarMunicipalFiltroQuery,
+  type RiskFiltroQuery,
+} from '@healthmap/contracts';
 import { parseOrThrow } from './parse.js';
 
 export function parsePagination(query: unknown): PaginationQuery {
@@ -9,6 +16,10 @@ export function parsePagination(query: unknown): PaginationQuery {
 
 export function parseRiskFiltro(query: unknown): RiskFiltroQuery {
   return parseOrThrow(riskFiltroQuerySchema, query);
+}
+
+export function parseRadarMunicipalFiltro(query: unknown): RadarMunicipalFiltroQuery {
+  return parseOrThrow(radarMunicipalFiltroQuerySchema, query);
 }
 
 const municipiosFiltroSchema = z.object({

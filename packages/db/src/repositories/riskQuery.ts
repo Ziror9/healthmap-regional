@@ -110,6 +110,48 @@ export async function getCompetenciaMaisRecenteComRiskScore(
   return competencia;
 }
 
+/**
+ * Competencia mais recente (por dataRef) DENTRO de um ano especifico que tem
+ * RiskScore para o riskConfig informado - usada pelo Radar Municipal (Fase
+ * 5.7) para resolver "ano" em algo que RiskScore entende (RiskScore e por
+ * competencia/mes, nao tem grao anual proprio; nao inventamos um "RiskScore
+ * anual" novo, so escolhemos qual competencia ja calculada mostrar quando o
+ * usuario filtra por ano - mesma filosofia de getCompetenciaMaisRecenteComRiskScore).
+ */
+export async function getCompetenciaMaisRecenteComRiskScorePorAno(
+  prisma: PrismaClient,
+  riskConfigId: number,
+  ano: number,
+): Promise<CompetenciaComDadosRef | null> {
+  const competenciasComScore = await prisma.riskScore.findMany({
+    where: { riskConfigId, competencia: { ano } },
+    select: { competenciaId: true },
+    distinct: ['competenciaId'],
+  });
+  if (competenciasComScore.length === 0) return null;
+
+  const competencia = await prisma.competencia.findFirst({
+    where: { id: { in: competenciasComScore.map((c) => c.competenciaId) } },
+    orderBy: { dataRef: 'desc' },
+    select: { id: true, ano: true, mes: true },
+  });
+  return competencia;
+}
+
+/** Anos distintos com pelo menos 1 RiskScore REAL para o riskConfig informado - "anos disponiveis" do Radar Municipal. */
+export async function getAnosComRiskScore(
+  prisma: PrismaClient,
+  riskConfigId: number,
+  origem: OrigemValor = 'REAL',
+): Promise<number[]> {
+  const rows = await prisma.riskScore.findMany({
+    where: { riskConfigId, origem },
+    select: { competencia: { select: { ano: true } } },
+    distinct: ['competenciaId'],
+  });
+  return [...new Set(rows.map((r) => r.competencia.ano))].sort((a, b) => a - b);
+}
+
 export interface RiskScoreListItem {
   municipioId: number;
   municipioNome: string;

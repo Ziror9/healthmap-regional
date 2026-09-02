@@ -230,3 +230,18 @@ export async function listIndicadoresDoMunicipio(
     origem: r.origem,
   }));
 }
+
+/** Anos distintos com pelo menos 1 IndicadorMunicipal para uma definicao/origem - "anos disponiveis" do Radar Municipal (Fase 5.7), nunca inventados no frontend. */
+export async function getAnosComIndicadorMunicipal(
+  prisma: PrismaClient,
+  indicadorDefinicaoId: string,
+  origem: 'REAL' | 'DEMO' = 'REAL',
+): Promise<number[]> {
+  const rows = await prisma.indicadorMunicipal.findMany({
+    where: { indicadorDefinicaoId, origem },
+    select: { ano: true },
+    distinct: ['ano'],
+    orderBy: { ano: 'asc' },
+  });
+  return rows.map((r) => r.ano);
+}
