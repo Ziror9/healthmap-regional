@@ -713,6 +713,52 @@ automatizado.
 
 ---
 
+## Fase 5.9 - Real-first + limpeza analitica `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Orientar o produto por dados REAL e pelas analises com valor
+analitico real, sem destruir a infraestrutura DEMO usada em desenvolvimento
+e testes.
+
+**Entregas.**
+
+- Auditoria completa do inventario DEMO (banco, paginas, componentes, seeds,
+  testes) e dos indicadores, com classificacao de valor analitico -
+  `docs/fase-5.9-relatorio.md`;
+- Auditoria do RiskScore: **os dados REAL NAO foram contaminados** (7.740
+  scores REAL em municipios REAL e competencias 2024; os 12 scores DEMO da
+  config 4 sao de municipios DEMO em competencias 2025 - conjuntos disjuntos
+  em 3 eixos). Causa raiz identificada em `getRiskConfigsFase2`, correcao
+  proposta mas NAO executada (exige autorizacao);
+- Real-first na experiencia analitica: `/radar` e o catalogo `/municipios`
+  passaram a usar REAL por padrao; regioes e municipios DEMO saíram do mapa e
+  da leitura regional da Visao Geral; `/municipios` ganhou toggle explicito
+  para incluir os 15 municipios DEMO;
+- `/radar` passou a paginar ate o fim (lia no maximo 200 dos 645);
+- Correcao de afirmacoes factualmente falsas: `/metodologia` dizia "toda a
+  base e DEMO" e "a base atual e 100% DEMO" (falso desde a Fase 5.3);
+  `/sobre` e o rodape tambem estavam desatualizados. A secao de limitacoes
+  passou a listar as limitacoes reais e atuais.
+
+Detalhes completos: [`docs/fase-5.9-relatorio.md`](fase-5.9-relatorio.md).
+
+**Dependencias.** Fase 5.8.
+
+**RiskScore/RiskConfig/pesos/metodologia:** nada alterado.
+
+**Nao entregue nesta rodada:**
+
+- Isolamento DEMO/REAL na origem (`getRiskConfigsFase2`) - proposto, exige
+  autorizacao por envolver re-execucao e remocao de registros;
+- `TAXA_INTERNACAO_10K_HAB` continua com cobertura de 1/645 - resolver exige
+  decisao metodologica (pivo de grao) ou retirada do indicador;
+- Nenhum codigo DEMO foi removido (seed, fixtures e testes intactos).
+
+**Criterio de conclusao.** Produto orientado por REAL, sem mistura REAL/DEMO
+nas analises, sem afirmacoes falsas na interface, com DEMO preservado para
+desenvolvimento. Atingido - validado no navegador e por teste automatizado.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

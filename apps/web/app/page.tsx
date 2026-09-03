@@ -155,6 +155,10 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
     const riscoPorMunicipio = new Map(risco.map((item) => [item.municipio.id, item]));
     const grupos = new Map<number, RegiaoGrupo>();
     for (const municipio of municipios) {
+      // Real-first (Fase 5.9): as 5 regioes "(ilustrativa)" do seed DEMO nao
+      // entram na leitura regional do produto - misturadas com os 17 DRS
+      // oficiais elas pareceriam mais uma regiao de saude qualquer.
+      if (inferOrigemMunicipio(municipio.codigoIbge7) !== 'REAL') continue;
       const grupo = grupos.get(municipio.regiaoSaude.id) ?? {
         regiaoId: municipio.regiaoSaude.id,
         regiaoNome: municipio.regiaoSaude.nome,
@@ -174,7 +178,12 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
 
   const municipiosParaMapa = useMemo<MunicipioNoMapa[]>(() => {
     const riscoPorMunicipioId = new Map(risco.map((item) => [item.municipio.id, item]));
-    return municipios.map((m) => {
+    // So municipios REAL: os DEMO nao tem geometria no GeoJSON oficial e
+    // nunca apareceriam no mapa - manter na lista so criaria a impressao de
+    // que fazem parte do territorio analisado.
+    return municipios
+      .filter((m) => inferOrigemMunicipio(m.codigoIbge7) === 'REAL')
+      .map((m) => {
       const r = riscoPorMunicipioId.get(m.id);
       return {
         id: m.id,

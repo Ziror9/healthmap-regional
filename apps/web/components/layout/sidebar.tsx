@@ -110,7 +110,7 @@ export function Sidebar() {
       <p className="mt-3 px-3 text-[11px] leading-relaxed text-muted-foreground">
         Ambiente de desenvolvimento
         <br />
-        Dados REAL e DEMO coexistem — origem sempre identificada
+        Análises sobre dados REAL — origem sempre identificada
       </p>
     </div>
   );

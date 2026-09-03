@@ -16,8 +16,10 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5.8 (fluxo assistencial + hierarquia de informacao)
-concluida, parcialmente.** Schema, migrations, base DEMO, motor de risco
+**Estado atual: Fase 5.9 (real-first + limpeza analitica) concluida,
+parcialmente.** As analises do produto usam REAL; a base DEMO continua
+integra no banco e nos testes, mas nao alimenta mais as paginas analiticas
+(ver `docs/fase-5.9-relatorio.md`). Schema, migrations, base DEMO, motor de risco
 (`packages/risk`), API REST somente-leitura (`apps/api`) e um dashboard
 navegavel (`apps/web`) existem e estao validados - publico, sem
 autenticacao. O frontend consome a API (Visao Geral com mapa real de SP em
@@ -91,7 +93,8 @@ Ver
 Radar Regional - implementada e testada, relatorio dedicado ainda
 pendente de redacao, ver `docs/known-limitations.md`) e
 [`docs/fase-5.7-relatorio.md`](docs/fase-5.7-relatorio.md) e
-[`docs/fase-5.8-relatorio.md`](docs/fase-5.8-relatorio.md).
+[`docs/fase-5.8-relatorio.md`](docs/fase-5.8-relatorio.md) e
+[`docs/fase-5.9-relatorio.md`](docs/fase-5.9-relatorio.md).
 
 ## Objetivo
 

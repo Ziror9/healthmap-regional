@@ -52,6 +52,15 @@
   RiskScore nao tem grao anual proprio - o filtro "Ano" resolve para a
   competencia mais recente daquele ano com RiskScore calculado, sem criar
   metodologia nova. Ver `docs/fase-5.7-relatorio.md`.
+- **As analises do produto usam REAL; DEMO ficou restrito a
+  desenvolvimento/testes (Fase 5.9).** `/`, `/radar`, `/radar-municipal` e o
+  catalogo `/municipios` passaram a usar REAL por padrao. A base DEMO (15
+  municipios, 5 regioes "ilustrativa", seed e fixtures) continua integra no
+  banco e nos testes - so nao alimenta mais as analises. O filtro de origem
+  permite inspecionar DEMO deliberadamente, sempre rotulado. Antes disso,
+  `/radar` abria mostrando 3 municipios sinteticos como "ranking do estado",
+  e `/metodologia` afirmava que "toda a base e DEMO" (falso desde a Fase
+  5.3). Ver `docs/fase-5.9-relatorio.md`.
 - **Fluxo assistencial (Fase 5.8) cobre 51,7% dos pares, mas ~94% do
   volume.** `gold.FatoFluxoInternacao` (SIH/SUS 2024) tem 3.555 pares
   origem->destino, dos quais 1.717 suprimidos (n<5) - a supressao atinge

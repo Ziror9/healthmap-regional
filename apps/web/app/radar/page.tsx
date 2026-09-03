@@ -16,17 +16,17 @@ import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ApiRequestError, getRisk } from '@/lib/api';
+import { ApiRequestError, getTodosRisk } from '@/lib/api';
 import { formatCompetenciaLabel, formatIndice } from '@/lib/format';
 import { CLASSIFICACAO_ORDEM, getClassificacaoDisplay } from '@/lib/risk-display';
 import { buildMunicipioHref, useRiskFiltersUrl } from '@/lib/use-risk-filters';
 import { cn } from '@/lib/utils';
 
 /**
- * Radar de Risco - ranking completo. Busca GET /api/risk (pageSize alto - a
- * base DEMO tem poucas dezenas de municipios) e faz ordenacao/filtro por
- * classificacao no navegador, sobre a lista ja calculada pela API. Nao ha
- * recalculo de indice, peso ou classificacao aqui.
+ * Radar de Risco - ranking completo. Busca GET /api/risk paginando ate o fim
+ * (getTodosRisk: sao 645 municipios REAL, acima do teto de 200 por pagina) e
+ * faz ordenacao/filtro por classificacao no navegador, sobre a lista ja
+ * calculada pela API. Nao ha recalculo de indice, peso ou classificacao aqui.
  */
 
 type Estado =
@@ -50,7 +50,11 @@ function RadarContent() {
     let cancelado = false;
     setEstado({ tipo: 'carregando' });
 
-    getRisk({ ...filtros, pageSize: 200 })
+    // Real-first (Fase 5.9): o ranking do produto e sobre a base REAL. Sem
+    // esse default a pagina resolve para a competencia mais recente com
+    // RiskScore - que hoje e DEMO (2025) - e o ranking "do estado" aparece
+    // com 3 municipios sinteticos. O filtro de origem sobrepoe.
+    getTodosRisk({ ...filtros, origem: filtros.origem ?? 'REAL' })
       .then((resposta) => {
         if (!cancelado) setEstado({ tipo: 'pronto', itens: resposta.data, meta: resposta.meta.filtros });
       })

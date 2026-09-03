@@ -19,7 +19,7 @@ export default function SobrePage() {
       <PageContent className="max-w-3xl space-y-8">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="accent">Ambiente de desenvolvimento</Badge>
-          <Badge variant="outline">Fase 5 · Dados REAL (parcial) + DEMO</Badge>
+          <Badge variant="outline">Fase 5.9 · Análises orientadas por dados REAL</Badge>
         </div>
 
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -46,19 +46,18 @@ export default function SobrePage() {
 
         <div className="space-y-3 border-l-2 border-border pl-4 text-xs leading-relaxed text-muted-foreground">
           <p>
-            <strong className="text-foreground">O que já é REAL:</strong> os 645 municípios de São Paulo e suas
-            17 regiões de saúde (IBGE + SES-SP), a malha territorial oficial (mapa), capacidade de leitos
-            SUS/total via CNES, e uma prova de conceito do SIH/SUS (internações oncológicas, competência
-            2024-02). Cada número REAL carrega proveniência completa e pode ser conferido junto do dado — nunca
-            é apresentado como DEMO nem misturado silenciosamente com ele.
+            <strong className="text-foreground">O que é REAL:</strong> os 645 municípios de São Paulo e suas 17
+            regiões de saúde (IBGE + SES-SP), a malha territorial oficial (mapa), internações oncológicas do
+            SIH/SUS (12 competências de 2024), mortalidade oncológica do SIM/DATASUS, capacidade de leitos via
+            CNES, vulnerabilidade social via IPVS/SEADE, o fluxo assistencial residência → internação, e o Radar
+            de Risco calculado sobre esses insumos. Cada número REAL carrega proveniência completa.
           </p>
           <p>
-            <strong className="text-foreground">O que ainda é DEMO:</strong> os 15 municípios ilustrativos
-            (código IBGE sintético, prefixo <code className="font-mono">36</code>) e, por enquanto, o próprio
-            Radar de Risco inteiro — SIH e CNES REAL ainda não compartilham nenhuma competência em comum, então
-            a Pressão Hospitalar Estimada REAL continua indisponível (motivo completo em{' '}
-            <code className="font-mono">docs/sih-methodology.md</code> §9). Todo dado DEMO é sintético e
-            declarado como tal na interface, nunca apresentado como se fosse oficial.
+            <strong className="text-foreground">O papel do DEMO:</strong> os 15 municípios ilustrativos (código
+            IBGE sintético, prefixo <code className="font-mono">36</code>) e seus fatos sintéticos continuam no
+            banco como apoio de desenvolvimento e testes automatizados — mas <strong className="text-foreground">
+            não alimentam as análises do produto</strong>. As páginas analíticas usam REAL por padrão; o filtro
+            de origem permite inspecionar DEMO deliberadamente, sempre rotulado.
           </p>
           <p>
             Detalhes completos em <code className="font-mono">docs/fase-5-relatorio.md</code>,{' '}

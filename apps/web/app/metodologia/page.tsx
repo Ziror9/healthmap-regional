@@ -87,7 +87,8 @@ export default function MetodologiaPage() {
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                 <strong className="text-foreground">DEMO</strong> — dado sintético, gerado para desenvolvimento e
                 demonstração. <strong className="text-foreground">REAL</strong> — derivado de fonte oficial
-                (SIH/SUS, CNES, IBGE), por pipeline de ingestão registrado. Hoje toda a base é DEMO.
+                (SIH/SUS, SIM, CNES, IBGE, SEADE), por pipeline de ingestão registrado. As análises do produto
+                usam REAL; a base DEMO permanece apenas como apoio de desenvolvimento e testes.
               </p>
             </Card>
             <Card className="p-4">
@@ -218,10 +219,21 @@ export default function MetodologiaPage() {
           <SectionHeader title="Limitações conhecidas" description="Resumo — detalhes completos em docs/known-limitations.md." />
           <Card className="p-4">
             <ul className="list-inside list-disc space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-              <li>A base atual é 100% DEMO (sintética) — nenhum valor representa a situação real de qualquer município.</li>
-              <li>A geografia da base DEMO cobre 15 municípios ilustrativos com códigos IBGE sintéticos, não os 645 municípios oficiais de SP.</li>
+              <li>
+                Tendência e Severidade continuam estruturalmente indisponíveis — a metodologia (janela móvel,
+                sazonalidade, composição dos sub-indicadores) nunca foi definida, e não foi inventada.
+              </li>
+              <li>
+                A taxa de internação por 10 mil habitantes tem cobertura de 1 município: a supressão n&lt;5
+                aplicada célula a célula (faixa etária × sexo × competência) anula o total anual de quase todos
+                os municípios. É a regra de privacidade funcionando, não uma falha de carga.
+              </li>
+              <li>
+                O fluxo assistencial cobre ~94% do volume, mas 51,7% dos pares origem→destino ficam suprimidos
+                (n&lt;5); pares com ponta fora de SP são excluídos, nunca imputados.
+              </li>
               <li>As taxonomias de faixa etária (decenal) e tipo de leito são provisórias, não confrontadas com o padrão real do SIH/CNES.</li>
-              <li>Não há integração real com SIH/SUS, CNES ou IBGE ainda.</li>
+              <li>Os pesos do Radar são iguais (0,25) e não calibrados — nenhuma RiskConfig é oficial.</li>
               <li>A API é pública, sem autenticação — RBAC efetivo pertence à Fase 6.</li>
             </ul>
           </Card>

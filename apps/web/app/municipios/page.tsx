@@ -23,6 +23,7 @@ export default function MunicipiosPage() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
   const [busca, setBusca] = useState('');
   const [regiaoFiltro, setRegiaoFiltro] = useState<number | ''>('');
+  const [incluirDemo, setIncluirDemo] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -40,14 +41,31 @@ export default function MunicipiosPage() {
     };
   }, []);
 
+  /**
+   * Real-first (Fase 5.9): o catalogo do produto sao os 645 municipios
+   * oficiais de SP. Os 15 municipios DEMO ficam fora por padrao - 8 deles
+   * reusam o nome de um municipio real (Campinas, Guarulhos, Santos...), o
+   * que fazia a busca devolver dois resultados homonimos distinguiveis so
+   * pelo codigo IBGE. Continuam acessiveis pelo toggle, sempre rotulados.
+   */
   const municipiosFiltrados = useMemo(() => {
     if (estado.tipo !== 'pronto') return [];
     return estado.municipios.filter((municipio) => {
+      const origem = inferOrigemMunicipio(municipio.codigoIbge7);
+      if (!incluirDemo && origem !== 'REAL') return false;
       const combinaBusca = busca.trim() === '' || municipio.nome.toLowerCase().includes(busca.trim().toLowerCase());
       const combinaRegiao = regiaoFiltro === '' || municipio.regiaoSaude.id === regiaoFiltro;
       return combinaBusca && combinaRegiao;
     });
-  }, [estado, busca, regiaoFiltro]);
+  }, [estado, busca, regiaoFiltro, incluirDemo]);
+
+  const totalDemo = useMemo(
+    () =>
+      estado.tipo === 'pronto'
+        ? estado.municipios.filter((m) => inferOrigemMunicipio(m.codigoIbge7) !== 'REAL').length
+        : 0,
+    [estado],
+  );
 
   return (
     <>
@@ -75,6 +93,17 @@ export default function MunicipiosPage() {
                   </option>
                 ))}
               </Select>
+              {totalDemo > 0 && (
+                <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={incluirDemo}
+                    onChange={(evento) => setIncluirDemo(evento.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-border"
+                  />
+                  Incluir {totalDemo} municípios DEMO
+                </label>
+              )}
             </div>
           ) : undefined
         }
