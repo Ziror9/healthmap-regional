@@ -1,0 +1,169 @@
+/**
+ * Testes de integracao do fluxo assistencial (Fase 5.8) - GET /api/fluxo/*.
+ *
+ * Rodam contra a API real + PostgreSQL local com a carga SIH REAL executada
+ * (etl/ingest_sih.py, que agora tambem grava gold.FatoFluxoInternacao).
+ */
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { type ApiErrorEnvelope, baseUrl, prisma, readJson, startTestServer, stopTestServer } from './setup.js';
+
+beforeAll(startTestServer, 30_000);
+afterAll(stopTestServer);
+
+interface FluxoItem {
+  municipio: { id: number; nome: string; codigoIbge7: string };
+  internacoes: number | null;
+  suprimido: boolean;
+  mesmoMunicipio: boolean;
+}
+
+interface FluxoMunicipioEnvelope {
+  data: {
+    municipio: { id: number; nome: string; codigoIbge7: string };
+    ano: number;
+    saidas: FluxoItem[];
+    entradas: FluxoItem[];
+    resumo: {
+      internacoesVisiveis: number;
+      internacoesNoProprioMunicipio: number;
+      internacoesForaDoMunicipio: number;
+      paresSuprimidos: number;
+      destinosVisiveis: number;
+      taxaFluxoExternoVisivel: number | null;
+    };
+  } | null;
+  meta: { filtros: { ano: number | null; anosDisponiveis: number[]; origem: string | null } };
+}
+
+interface PolosEnvelope {
+  data: { municipio: { id: number; nome: string; codigoIbge7: string }; internacoesRecebidasDeFora: number; municipiosDeOrigem: number }[];
+  meta: { filtros: { ano: number | null; anosDisponiveis: number[]; origem: string | null } };
+}
+
+describe('GET /api/fluxo/polos', () => {
+  it('lista polos ordenados por volume recebido de fora, com ano resolvido a partir da base', async () => {
+    const res = await fetch(`${baseUrl}/api/fluxo/polos?limite=5`);
+    expect(res.status).toBe(200);
+    const body = await readJson<PolosEnvelope>(res);
+
+    expect(body.meta.filtros.anosDisponiveis.length).toBeGreaterThan(0);
+    expect(body.meta.filtros.ano).not.toBeNull();
+    expect(body.data.length).toBeGreaterThan(0);
+    expect(body.data.length).toBeLessThanOrEqual(5);
+
+    for (let i = 1; i < body.data.length; i += 1) {
+      expect(body.data[i - 1]!.internacoesRecebidasDeFora).toBeGreaterThanOrEqual(body.data[i]!.internacoesRecebidasDeFora);
+    }
+    for (const polo of body.data) {
+      expect(polo.municipio.codigoIbge7).toMatch(/^35\d{5}$/);
+      expect(polo.municipiosDeOrigem).toBeGreaterThan(0);
+    }
+  });
+
+  it('ano inexistente -> 404 (nunca inventa um ano)', async () => {
+    const res = await fetch(`${baseUrl}/api/fluxo/polos?ano=1999`);
+    expect(res.status).toBe(404);
+    const erro = await readJson<ApiErrorEnvelope>(res);
+    expect(erro.error.code).toBe('ANO_NAO_DISPONIVEL');
+  });
+});
+
+describe('GET /api/fluxo/municipios/:municipioId', () => {
+  it('devolve saidas, entradas e resumo coerentes para um municipio com fluxo visivel', async () => {
+    const parVisivel = await prisma.fatoFluxoInternacao.findFirst({
+      where: { origem: 'REAL', suprimido: false },
+      orderBy: { internacoes: 'desc' },
+    });
+    expect(parVisivel).not.toBeNull();
+
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${parVisivel!.municipioResidenciaId}`);
+    expect(res.status).toBe(200);
+    const body = await readJson<FluxoMunicipioEnvelope>(res);
+    expect(body.data).not.toBeNull();
+
+    const { resumo, saidas } = body.data!;
+    expect(saidas.length).toBeGreaterThan(0);
+    // O resumo e a soma das saidas visiveis - nunca inclui par suprimido.
+    const somaVisivel = saidas
+      .filter((s) => !s.suprimido && s.internacoes !== null)
+      .reduce((total, s) => total + s.internacoes!, 0);
+    expect(resumo.internacoesVisiveis).toBe(somaVisivel);
+    expect(resumo.internacoesNoProprioMunicipio + resumo.internacoesForaDoMunicipio).toBe(resumo.internacoesVisiveis);
+  });
+
+  it('par suprimido chega como internacoes=null e suprimido=true, nunca 0', async () => {
+    const parSuprimido = await prisma.fatoFluxoInternacao.findFirst({ where: { origem: 'REAL', suprimido: true } });
+    expect(parSuprimido).not.toBeNull();
+
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${parSuprimido!.municipioResidenciaId}`);
+    const body = await readJson<FluxoMunicipioEnvelope>(res);
+    const suprimidos = body.data!.saidas.filter((s) => s.suprimido);
+    expect(suprimidos.length).toBeGreaterThan(0);
+    for (const item of suprimidos) {
+      expect(item.internacoes).toBeNull();
+    }
+  });
+
+  it('taxa de fluxo externo e derivada apenas do volume visivel (ou null), nunca 0 por ausencia de dado', async () => {
+    const parVisivel = await prisma.fatoFluxoInternacao.findFirst({
+      where: { origem: 'REAL', suprimido: false },
+      orderBy: { internacoes: 'desc' },
+    });
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${parVisivel!.municipioResidenciaId}`);
+    const body = await readJson<FluxoMunicipioEnvelope>(res);
+    const { resumo } = body.data!;
+
+    if (resumo.internacoesVisiveis === 0) {
+      expect(resumo.taxaFluxoExternoVisivel).toBeNull();
+    } else {
+      expect(resumo.taxaFluxoExternoVisivel).toBeCloseTo(resumo.internacoesForaDoMunicipio / resumo.internacoesVisiveis, 6);
+    }
+  });
+
+  it('o par origem==destino e marcado como mesmoMunicipio (atendimento local nao e deslocamento)', async () => {
+    const parLocal = await prisma.$queryRaw<{ municipioResidenciaId: number }[]>`
+      SELECT "municipioResidenciaId" FROM gold."FatoFluxoInternacao"
+      WHERE origem = 'REAL' AND suprimido = false AND "municipioResidenciaId" = "municipioInternacaoId"
+      LIMIT 1
+    `;
+    expect(parLocal.length).toBe(1);
+
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${parLocal[0]!.municipioResidenciaId}`);
+    const body = await readJson<FluxoMunicipioEnvelope>(res);
+    const local = body.data!.saidas.filter((s) => s.mesmoMunicipio);
+    expect(local.length).toBe(1);
+    expect(local[0]!.municipio.id).toBe(parLocal[0]!.municipioResidenciaId);
+  });
+
+  it('municipio inexistente -> 404', async () => {
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/999999`);
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('Fase 5.8 - integridade do fato de fluxo', () => {
+  it('todo par aponta para dois municipios REAL de SP (nunca DEMO, nunca outra UF)', async () => {
+    const foraDeSp = await prisma.$queryRaw<{ total: bigint }[]>`
+      SELECT count(*) as total FROM gold."FatoFluxoInternacao" f
+      JOIN silver."Municipio" origem ON origem.id = f."municipioResidenciaId"
+      JOIN silver."Municipio" destino ON destino.id = f."municipioInternacaoId"
+      WHERE f.origem = 'REAL'
+        AND (origem."codigoIbge7" NOT LIKE '35%' OR destino."codigoIbge7" NOT LIKE '35%')
+    `;
+    expect(Number(foraDeSp[0]?.total ?? -1)).toBe(0);
+  });
+
+  it('nenhum par nao-suprimido tem internacoes abaixo do limiar (n<5)', async () => {
+    const abaixoDoLimiar = await prisma.fatoFluxoInternacao.count({
+      where: { origem: 'REAL', suprimido: false, internacoes: { lt: 5 } },
+    });
+    expect(abaixoDoLimiar).toBe(0);
+  });
+
+  it('nenhum par suprimido carrega valor (NULL nunca vira 0)', async () => {
+    const suprimidoComValor = await prisma.fatoFluxoInternacao.count({
+      where: { origem: 'REAL', suprimido: true, internacoes: { not: null } },
+    });
+    expect(suprimidoComValor).toBe(0);
+  });
+});

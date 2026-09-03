@@ -163,8 +163,40 @@ describe('GET /api/risk', () => {
     for (const item of body.data) expect(item.origem).toBe('DEMO');
   });
 
-  it('origem=REAL (nao existe na base DEMO): ausencia de dados -> lista vazia coerente', async () => {
+  /**
+   * Fase 5.8: quando o cliente pede uma origem explicitamente, a competencia
+   * default passa a ser uma que tenha RiskScore DAQUELA origem. Antes, a
+   * resolucao ignorava a origem e podia cair numa competencia que so tem
+   * score da outra origem, devolvendo lista vazia mesmo havendo dado - o que
+   * acontece hoje no banco real, onde a config REAL (fase5.4-real) tambem
+   * recebeu scores DEMO em competencias mais recentes que as REAL.
+   */
+  it('origem=REAL resolve para uma competencia que tem RiskScore REAL (nunca lista vazia havendo dado)', async () => {
+    const totalReal = await prisma.riskScore.count({ where: { origem: 'REAL' } });
     const res = await fetch(`${baseUrl}/api/risk?origem=REAL`);
+    expect(res.status).toBe(200);
+    const body = await readJson<ApiListEnvelope<RiskScoreItem>>(res);
+
+    if (totalReal === 0) {
+      expect(body.data).toEqual([]);
+      return;
+    }
+    expect(body.data.length).toBeGreaterThan(0);
+    for (const item of body.data) {
+      expect(item.origem).toBe('REAL');
+    }
+  });
+
+  it('ausencia de dados para a combinacao pedida -> lista vazia coerente, nunca erro', async () => {
+    // Competencia que so tem score DEMO + origem REAL explicita: combinacao
+    // legitima e sem dado. A API responde 200 com lista vazia (nao 404/500).
+    const competenciaSoDemo = await prisma.riskScore.findFirst({
+      where: { origem: 'DEMO' },
+      select: { competenciaId: true },
+    });
+    expect(competenciaSoDemo).not.toBeNull();
+
+    const res = await fetch(`${baseUrl}/api/risk?origem=REAL&competenciaId=${competenciaSoDemo!.competenciaId}`);
     expect(res.status).toBe(200);
     const body = await readJson<ApiListEnvelope<RiskScoreItem>>(res);
     expect(body.data).toEqual([]);

@@ -213,6 +213,8 @@ model Municipio {
   fatosInternacaoResidencia FatoInternacaoResidencia[]
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
+  fluxosComoOrigem          FatoFluxoInternacao[] @relation("FluxoOrigem")
+  fluxosComoDestino         FatoFluxoInternacao[] @relation("FluxoDestino")
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
   populacoesEstimadas       PopulacaoEstimada[]
@@ -266,6 +268,7 @@ model GrupoCid {
   fatosInternacaoResidencia FatoInternacaoResidencia[]
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosFluxoInternacao      FatoFluxoInternacao[]
   fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
   fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
 
@@ -406,6 +409,57 @@ model FatoInternacaoLocal {
   @@index([competenciaId])
   @@index([origem])
   @@index([execucaoId])
+  @@schema("gold")
+}
+
+/// Fluxo assistencial: quantas internacoes de residentes do municipio A
+/// aconteceram no municipio B (Fase 5.8).
+///
+/// NUANCE ARQUITETURAL DELIBERADA: e a unica tabela do projeto que carrega os
+/// dois eixos (residencia e internacao) na MESMA linha. O invariante #4 do
+/// CLAUDE.md ("residencia e internacao nunca se misturam") existe para impedir
+/// que um NUMERO seja composto misturando os eixos (ex.: taxa por 10 mil
+/// habitantes usando internacoes por local de atendimento). Aqui os dois eixos
+/// permanecem explicitos, rotulados e nunca somados entre si - o par ordenado
+/// (origem, destino) E o dado. Sem essa tabela o fluxo e irrecuperavel: as
+/// agregacoes marginais existentes (FatoInternacaoResidencia/Local) perdem o
+/// pareamento no momento do groupby, e reconstrui-lo por estimativa seria
+/// inventar dado. Ver docs/fase-5.8-relatorio.md.
+///
+/// Grao ANUAL (nao competencia): um par origem->destino num unico mes quase
+/// sempre tem menos de 5 pacientes, e a supressao n<5 no grao fino apagaria
+/// quase todo o fluxo - mesma licao do pivo de grao da Fase 5.6
+/// (FatoObitoResidencia). A supressao e decidida UMA vez, sobre o total anual
+/// do par.
+model FatoFluxoInternacao {
+  id Int @id @default(autoincrement())
+
+  /// Onde o paciente mora (eixo RESIDENCIA).
+  municipioResidenciaId Int
+  municipioResidencia   Municipio @relation("FluxoOrigem", fields: [municipioResidenciaId], references: [id])
+  /// Onde a internacao aconteceu (eixo INTERNACAO).
+  municipioInternacaoId Int
+  municipioInternacao   Municipio @relation("FluxoDestino", fields: [municipioInternacaoId], references: [id])
+  ano                   Int
+  grupoCidId            Int
+  grupoCid              GrupoCid @relation(fields: [grupoCidId], references: [id])
+
+  /// NULL quando suprimido = true. NUNCA 0.
+  internacoes Int?
+  suprimido   Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioResidenciaId, municipioInternacaoId, ano, grupoCidId])
+  @@index([ano])
+  @@index([municipioResidenciaId])
+  @@index([municipioInternacaoId])
+  @@index([origem])
   @@schema("gold")
 }
 
@@ -812,6 +866,7 @@ model IngestaoExecucao {
   fatosInternacaoResidencia FatoInternacaoResidencia[]
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosFluxoInternacao      FatoFluxoInternacao[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
   populacoesEstimadas       PopulacaoEstimada[]

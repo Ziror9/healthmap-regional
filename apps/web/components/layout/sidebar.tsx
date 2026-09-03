@@ -12,12 +12,35 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-const NAV_PRINCIPAL: NavItem[] = [
-  { href: '/', label: 'Visão Geral', icon: BarChart3 },
-  { href: '/radar', label: 'Radar de Risco', icon: Activity },
-  { href: '/radar-municipal', label: 'Radar Municipal', icon: Radar },
-  { href: '/municipios', label: 'Municípios', icon: MapIcon },
-  { href: '/metodologia', label: 'Metodologia', icon: BookOpen },
+/**
+ * Navegacao em 3 niveis (Fase 5.8): situacao geral -> analise -> investigacao.
+ * A ordem nao e estetica: reflete a sequencia de leitura pretendida (o que
+ * esta acontecendo, onde esta acontecendo, e so entao o detalhe/metodologia).
+ */
+interface NavGrupo {
+  titulo: string;
+  itens: NavItem[];
+}
+
+const NAV_GRUPOS: NavGrupo[] = [
+  {
+    titulo: 'Situação',
+    itens: [{ href: '/', label: 'Visão Geral', icon: BarChart3 }],
+  },
+  {
+    titulo: 'Análise',
+    itens: [
+      { href: '/radar-municipal', label: 'Radar Municipal', icon: Radar },
+      { href: '/radar', label: 'Radar de Risco', icon: Activity },
+    ],
+  },
+  {
+    titulo: 'Investigação',
+    itens: [
+      { href: '/municipios', label: 'Municípios', icon: MapIcon },
+      { href: '/metodologia', label: 'Metodologia', icon: BookOpen },
+    ],
+  },
 ];
 
 const NAV_SECUNDARIA: NavItem[] = [{ href: '/sobre', label: 'Sobre', icon: Info }];
@@ -65,9 +88,16 @@ export function Sidebar() {
   const [aberta, setAberta] = useState(false);
 
   const navegacao = (
-    <nav className="flex-1 space-y-1 px-3">
-      {NAV_PRINCIPAL.map((item) => (
-        <NavLink key={item.href} item={item} ativo={pathname === item.href} onNavigate={() => setAberta(false)} />
+    <nav className="flex-1 space-y-4 px-3">
+      {NAV_GRUPOS.map((grupo) => (
+        <div key={grupo.titulo} className="space-y-1">
+          <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+            {grupo.titulo}
+          </p>
+          {grupo.itens.map((item) => (
+            <NavLink key={item.href} item={item} ativo={pathname === item.href} onNavigate={() => setAberta(false)} />
+          ))}
+        </div>
       ))}
     </nav>
   );

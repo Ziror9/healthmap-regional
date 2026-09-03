@@ -659,6 +659,60 @@ automatizado.
 
 ---
 
+## Fase 5.8 - Fluxo assistencial + hierarquia de informacao `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** (1) Revelar para onde os pacientes oncologicos de cada
+municipio vao se tratar - analise que nenhum painel publico de SP oferece; e
+(2) reorganizar o produto para que a leitura siga situacao -> analise ->
+investigacao, em vez de tratar todos os indicadores como igualmente
+importantes.
+
+**Entregas.**
+
+- `gold.FatoFluxoInternacao` (migration `fase5_8_fluxo_internacao`) - par
+  ordenado residencia -> internacao, grao ANUAL, supressao n<5 decidida uma
+  vez sobre o total do par. UNICA tabela que carrega os dois eixos na mesma
+  linha, com justificativa registrada (o invariante #4 proibe compor um
+  NUMERO misturando eixos, nao registrar o par);
+- `etl/ingest_sih.py` estendido de forma aditiva (`agregar_fluxo`/
+  `gravar_fluxo`) - terceira agregacao do MESMO dataframe bruto, mesmo padrao
+  da agregacao regional da Fase 5.5; par com ponta fora de SP e excluido com
+  quality check, nunca imputado;
+- `packages/db/src/repositories/fluxoQuery.ts` + `GET /api/fluxo/polos` e
+  `GET /api/fluxo/municipios/:id` (route -> controller -> service -> db);
+- `components/domain/fluxo-panel.tsx`, usado no detalhe do municipio; card
+  "Polos de atendimento" na Visao Geral;
+- Visao Geral reestruturada em 3 niveis (situacao/analise/investigacao) e
+  navegacao agrupada nos mesmos niveis;
+- 10 testes de integracao (`apps/api/src/__tests__/fluxo.test.ts`);
+- 3 defeitos pre-existentes corrigidos: Visao Geral lia so 200 dos 645
+  municipios (KPIs enviesados, mapa incompleto); landing page abria em DEMO
+  com 3 municipios; seletor de configuracao duplicava a mesma config 12
+  vezes (chave React duplicada).
+
+**Dados carregados (SIH/SUS 2024, C00-C97).** 3.555 pares (1.838 visiveis,
+1.717 suprimidos), 183.193 internacoes visiveis, 645 origens, 292 destinos.
+Polos: Sao Paulo (19.584 de 136 municipios), Jau (8.186 de 157), Ribeirao
+Preto (5.783 de 83), Barretos (4.908 de 170).
+
+Detalhes completos: [`docs/fase-5.8-relatorio.md`](fase-5.8-relatorio.md).
+
+**Dependencias.** Fase 5.7.
+
+**Nao entregue nesta rodada:**
+
+- Sem mapa de fluxo (linhas origem->destino) - a leitura e por listas;
+- So 2024, e so internacao pelo SUS (SIA/ambulatorial nao ingerido);
+- A poluicao de scores DEMO na RiskConfig REAL foi contornada na leitura, mas
+  nao corrigida no dado (exige decisao - ver known-limitations).
+
+**Criterio de conclusao.** Fluxo REAL carregado, consultavel por API e
+visivel no produto, com supressao honesta e indicador derivado rotulado;
+hierarquia reorganizada. Atingido - validado no navegador e por teste
+automatizado.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

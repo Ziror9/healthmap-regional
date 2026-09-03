@@ -21,4 +21,5 @@ export * from './risk.js';
 export * from './indicador.js';
 export * from './municipio-detalhe.js';
 export * from './radar-municipal.js';
+export * from './fluxo.js';
 export * from './error.js';

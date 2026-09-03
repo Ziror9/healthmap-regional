@@ -94,9 +94,18 @@ export interface CompetenciaComDadosRef {
 export async function getCompetenciaMaisRecenteComRiskScore(
   prisma: PrismaClient,
   riskConfigId: number,
+  /**
+   * Quando o cliente pede uma origem explicitamente, a competencia default
+   * precisa ser uma que tenha RiskScore DAQUELA origem. Sem isso a resolucao
+   * pode escolher uma competencia que so tem score da outra origem e devolver
+   * lista vazia mesmo havendo dado - situacao real no banco atual, onde a
+   * config REAL (fase5.4-real) tambem recebeu scores DEMO de competencias
+   * mais recentes. Omitido = comportamento original (qualquer origem).
+   */
+  origem?: OrigemValor,
 ): Promise<CompetenciaComDadosRef | null> {
   const competenciasComScore = await prisma.riskScore.findMany({
-    where: { riskConfigId },
+    where: { riskConfigId, ...(origem === undefined ? {} : { origem }) },
     select: { competenciaId: true },
     distinct: ['competenciaId'],
   });

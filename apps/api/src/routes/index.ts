@@ -5,6 +5,7 @@ import { regioesRoutes } from './regioes.routes.js';
 import { competenciasRoutes } from './competencias.routes.js';
 import { indicadoresRoutes } from './indicadores.routes.js';
 import { riskRoutes } from './risk.routes.js';
+import { fluxoRoutes } from './fluxo.routes.js';
 
 /**
  * Registro central de rotas.
@@ -22,3 +23,5 @@ routes.use('/api/regioes', regioesRoutes);
 routes.use('/api/competencias', competenciasRoutes);
 routes.use('/api/indicadores', indicadoresRoutes);
 routes.use('/api/risk', riskRoutes);
+// Fase 5.8 - fluxo assistencial (residencia -> internacao).
+routes.use('/api/fluxo', fluxoRoutes);

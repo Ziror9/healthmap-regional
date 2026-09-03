@@ -246,6 +246,42 @@ def agregar_local(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) ->
     return agregado, sem_municipio
 
 
+def agregar_fluxo(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
+    """
+    FASE 5.8 - fluxo assistencial: par ORDENADO (municipio de residencia ->
+    municipio de internacao) a partir do MESMO dataframe bruto das agregacoes
+    marginais acima.
+
+    E a unica agregacao do projeto que mantem os dois eixos na mesma linha.
+    Sem ela o pareamento e irrecuperavel: agregar_residencia e agregar_local
+    produzem distribuicoes MARGINAIS, e reconstruir a conjunta a partir das
+    marginais so seria possivel por estimativa (modelo gravitacional/IPF) -
+    ou seja, inventando dado. Ver docstring do model FatoFluxoInternacao.
+
+    NAO agrega por faixaEtaria/sexo de proposito: o grao final e anual e o par
+    ja e fino o bastante (645 origens x ~centenas de destinos). Devolve as
+    linhas por competencia; a soma anual e a supressao acontecem em run(),
+    depois de todas as competencias do ano terem sido lidas.
+    """
+    df = df.copy()
+    df["municipioResidenciaId"] = df["municipioResidenciaCodigo"].map(municipio_id_por_codigo6)
+    df["municipioInternacaoId"] = df["municipioInternacaoCodigo"].map(municipio_id_por_codigo6)
+    # Um par so e valido se as DUAS pontas forem municipios conhecidos de SP -
+    # um fluxo com origem ou destino desconhecido nao e um fluxo interpretavel.
+    sem_par_completo = int((df["municipioResidenciaId"].isna() | df["municipioInternacaoId"].isna()).sum())
+    df = df[df["municipioResidenciaId"].notna() & df["municipioInternacaoId"].notna()]
+    if df.empty:
+        return df, sem_par_completo
+
+    agregado = (
+        df.groupby(["municipioResidenciaId", "municipioInternacaoId"], as_index=False)
+        .agg(internacoes=("N_AIH", "count"))
+    )
+    agregado["municipioResidenciaId"] = agregado["municipioResidenciaId"].astype(int)
+    agregado["municipioInternacaoId"] = agregado["municipioInternacaoId"].astype(int)
+    return agregado, sem_par_completo
+
+
 LIMIAR_SUPRESSAO = 5
 
 
@@ -346,6 +382,50 @@ def gravar_local(
                     None if suprimido else int(linha.pacientesDia),
                     None if suprimido else int(linha.diariasUti),
                     None if suprimido else int(linha.obitos),
+                    suprimido, execucao_id, agora,
+                ),
+            )
+            gravados += 1
+    return gravados, rejeitados
+
+
+def gravar_fluxo(
+    conn: psycopg.Connection, agregado_anual: pd.DataFrame, ano: int, grupo_cid_id: int, execucao_id: str
+) -> tuple[int, int]:
+    """
+    FASE 5.8 - grava o fluxo ja somado no ANO. A supressao n<5 e decidida aqui,
+    uma unica vez, sobre o total anual do par origem->destino (nunca por
+    competencia: ver docstring de agregar_fluxo e do model). Idempotente:
+    upsert pela chave natural (residencia, internacao, ano, grupoCid).
+    """
+    agora = datetime.now(timezone.utc)
+    gravados = 0
+    rejeitados = 0
+    with conn.cursor() as cur:
+        for linha in agregado_anual.itertuples(index=False):
+            suprimido = linha.internacoes < LIMIAR_SUPRESSAO
+            if not suprimido and not _cell_valida(
+                conn, execucao_id, "sih_fluxo_valores_nao_negativos", {"internacoes": int(linha.internacoes)},
+            ):
+                rejeitados += 1
+                continue
+            cur.execute(
+                """
+                INSERT INTO gold."FatoFluxoInternacao"
+                    ("municipioResidenciaId", "municipioInternacaoId", ano, "grupoCidId",
+                     internacoes, suprimido, origem, "execucaoId", "updatedAt")
+                VALUES (%s, %s, %s, %s, %s, %s, 'REAL', %s, %s)
+                ON CONFLICT ("municipioResidenciaId", "municipioInternacaoId", ano, "grupoCidId")
+                DO UPDATE SET
+                    internacoes = EXCLUDED.internacoes,
+                    suprimido = EXCLUDED.suprimido,
+                    origem = EXCLUDED.origem,
+                    "execucaoId" = EXCLUDED."execucaoId",
+                    "updatedAt" = EXCLUDED."updatedAt"
+                """,
+                (
+                    int(linha.municipioResidenciaId), int(linha.municipioInternacaoId), ano, grupo_cid_id,
+                    None if suprimido else int(linha.internacoes),
                     suprimido, execucao_id, agora,
                 ),
             )
@@ -479,7 +559,15 @@ def run() -> None:
             "competencias_processadas": 0,
             "registros_processados": 0,
             "registros_rejeitados": 0,
+            "fluxo_linhas_gravadas": 0,
+            "fluxo_pares_sem_municipio": 0,
         }
+
+        # FASE 5.8: o fluxo tem grao ANUAL, mas o SIH e lido competencia a
+        # competencia - as parciais de cada mes sao acumuladas aqui e somadas
+        # depois do loop, para que a supressao n<5 seja decidida uma unica vez
+        # sobre o total do ano (mesma licao de grao da Fase 5.6).
+        fluxo_parciais_por_ano: dict[int, list[pd.DataFrame]] = {}
 
         for ano, mes in COMPETENCIAS_POC:
             alvo = next((a for a in arquivos_disponiveis if a.ano == ano and a.mes == mes), None)
@@ -526,6 +614,13 @@ def run() -> None:
 
             agregado_residencia, sem_municipio_residencia = agregar_residencia(valido, municipio_id_por_codigo6)
             agregado_local, sem_municipio_local = agregar_local(valido, municipio_id_por_codigo6)
+
+            # Fase 5.8: parcial do fluxo desta competencia, acumulada para
+            # soma anual depois do loop (nao grava nada aqui).
+            fluxo_parcial, sem_par_fluxo = agregar_fluxo(valido, municipio_id_por_codigo6)
+            if not fluxo_parcial.empty:
+                fluxo_parciais_por_ano.setdefault(ano, []).append(fluxo_parcial)
+            resumo_geral["fluxo_pares_sem_municipio"] += sem_par_fluxo
 
             lineage.registrar_qualidade_check(
                 conn, execucao_id=execucao.id, regra="sih_municipio_residencia_conhecido",
@@ -610,6 +705,46 @@ def run() -> None:
             resumo_geral["competencias_processadas"] += 1
             resumo_geral["registros_processados"] += estatisticas["validos_para_agregacao"]
             resumo_geral["registros_rejeitados"] += rejeitados_total
+
+        # ---------------------------------------------------------------
+        # FASE 5.8 - fluxo assistencial, grao ANUAL.
+        # Soma as parciais de todas as competencias lidas do ano e decide a
+        # supressao UMA vez sobre o total do par origem->destino. Execucao
+        # propria (sem competenciaId - o fato nao e de uma competencia), para
+        # linhagem separada da carga municipal/regional.
+        # ---------------------------------------------------------------
+        for ano_fluxo, parciais in sorted(fluxo_parciais_por_ano.items()):
+            consolidado = (
+                pd.concat(parciais, ignore_index=True)
+                .groupby(["municipioResidenciaId", "municipioInternacaoId"], as_index=False)
+                .agg(internacoes=("internacoes", "sum"))
+            )
+            execucao_fluxo = lineage.iniciar_execucao(
+                conn, fonte_dados_chave=FONTE_SIH, versao_pipeline=VERSAO_PIPELINE
+            )
+            lineage.registrar_qualidade_check(
+                conn, execucao_id=execucao_fluxo.id, regra="sih_fluxo_par_origem_destino_conhecido",
+                severidade="ALERTA", passou=resumo_geral["fluxo_pares_sem_municipio"] == 0,
+                linhas_afetadas=resumo_geral["fluxo_pares_sem_municipio"],
+                detalhe=(
+                    f"{resumo_geral['fluxo_pares_sem_municipio']} registro(s) com MUNIC_RES ou MUNIC_MOV fora dos "
+                    "645 municipios de SP - par de fluxo nao interpretavel, excluido (nunca imputado)"
+                )
+                if resumo_geral["fluxo_pares_sem_municipio"] else None,
+            )
+            gravados_fluxo, rejeitados_fluxo = gravar_fluxo(conn, consolidado, ano_fluxo, grupo_cid_id, execucao_fluxo.id)
+            execucao_fluxo.linhas_processadas = gravados_fluxo
+            execucao_fluxo.linhas_rejeitadas = rejeitados_fluxo
+            execucao_fluxo.finalizar(status="SUCESSO" if rejeitados_fluxo == 0 else "PARCIAL")
+            conn.commit()
+
+            suprimidos = int((consolidado["internacoes"] < LIMIAR_SUPRESSAO).sum())
+            print(
+                f"[sih] ano {ano_fluxo}: [FLUXO] FatoFluxoInternacao={gravados_fluxo} pares origem->destino "
+                f"({suprimidos} suprimidos por n<{LIMIAR_SUPRESSAO}), "
+                f"{len(parciais)} competencia(s) somada(s)"
+            )
+            resumo_geral["fluxo_linhas_gravadas"] += gravados_fluxo
 
         print("[sih] resumo final:")
         for chave, valor in resumo_geral.items():

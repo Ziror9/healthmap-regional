@@ -106,7 +106,10 @@ async function resolverFiltros(query: RiskFiltroQuery, grao: 'municipal' | 'regi
         ? null
         : grao === 'regional'
           ? await getCompetenciaMaisRecenteComRiskScoreRegional(prisma, riskConfigId)
-          : await getCompetenciaMaisRecenteComRiskScore(prisma, riskConfigId);
+          : // `query.origem` so e repassado quando o cliente pediu uma origem
+            // explicitamente - sem isso o comportamento default continua o
+            // documentado na Fase 3 (mais recente com RiskScore, qualquer origem).
+            await getCompetenciaMaisRecenteComRiskScore(prisma, riskConfigId, query.origem);
     const maisRecente = maisRecenteComDado ?? (await getCompetenciaMaisRecente(prisma));
     if (!maisRecente) {
       throw new HttpError(404, 'COMPETENCIA_NAO_ENCONTRADA', 'Nenhuma competencia cadastrada no banco.');

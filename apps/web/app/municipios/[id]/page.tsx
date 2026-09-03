@@ -1,6 +1,6 @@
 'use client';
 
-import type { IndicadorDefinicaoDTO, MunicipioDetalheDTO, RiscoDoMunicipioDTO, RiskComponenteItemDTO } from '@healthmap/contracts';
+import type { FluxoMunicipioDTO, IndicadorDefinicaoDTO, MunicipioDetalheDTO, RiscoDoMunicipioDTO, RiskComponenteItemDTO } from '@healthmap/contracts';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -19,7 +19,8 @@ import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
-import { ApiRequestError, getIndicadores, getMunicipio, getRiskComponentes } from '@/lib/api';
+import { FluxoPanel } from '@/components/domain/fluxo-panel';
+import { ApiRequestError, getFluxoMunicipio, getIndicadores, getMunicipio, getRiskComponentes } from '@/lib/api';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
 import { getComponenteLabel, getMotivoIndisponibilidade, inferOrigemMunicipio } from '@/lib/risk-display';
 import { useRiskFiltersUrl } from '@/lib/use-risk-filters';
@@ -35,6 +36,13 @@ type EstadoComponentes =
   | { tipo: 'erro'; mensagem: string }
   | { tipo: 'pronto'; itens: RiskComponenteItemDTO[] };
 
+/** Fase 5.8 - fluxo assistencial do municipio (busca propria, independente do resto da pagina). */
+type EstadoFluxo =
+  | { tipo: 'carregando' }
+  | { tipo: 'indisponivel' }
+  | { tipo: 'erro'; mensagem: string }
+  | { tipo: 'pronto'; fluxo: FluxoMunicipioDTO };
+
 export default function MunicipioDetalhePage() {
   const params = useParams<{ id: string }>();
   const municipioId = Number(params.id);
@@ -42,6 +50,7 @@ export default function MunicipioDetalhePage() {
 
   const [estado, setEstado] = useState<EstadoPagina>({ tipo: 'carregando' });
   const [componentes, setComponentes] = useState<EstadoComponentes>({ tipo: 'carregando' });
+  const [fluxo, setFluxo] = useState<EstadoFluxo>({ tipo: 'carregando' });
 
   useEffect(() => {
     if (!Number.isFinite(municipioId) || municipioId <= 0) {
@@ -117,6 +126,30 @@ export default function MunicipioDetalhePage() {
     };
   }, [municipioId, riscoSelecionado?.competencia.id, riscoSelecionado?.riskConfigId]);
 
+  // Fase 5.8: o fluxo tem grao ANUAL e nao depende da competencia/riskConfig
+  // selecionadas - por isso e uma busca separada, com o ano default resolvido
+  // pela API (nunca escolhido aqui).
+  useEffect(() => {
+    if (!Number.isFinite(municipioId) || municipioId <= 0) return;
+    let cancelado = false;
+    setFluxo({ tipo: 'carregando' });
+
+    getFluxoMunicipio(municipioId)
+      .then((resposta) => {
+        if (cancelado) return;
+        setFluxo(resposta.data ? { tipo: 'pronto', fluxo: resposta.data } : { tipo: 'indisponivel' });
+      })
+      .catch((erro: unknown) => {
+        if (cancelado) return;
+        const mensagem = erro instanceof ApiRequestError ? erro.message : 'Falha ao carregar o fluxo assistencial.';
+        setFluxo({ tipo: 'erro', mensagem });
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [municipioId]);
+
   const serieTemporal = useMemo<PontoSerie[]>(() => {
     if (estado.tipo !== 'pronto' || !riscoSelecionado) return [];
     return estado.municipio.riscos
@@ -133,6 +166,21 @@ export default function MunicipioDetalhePage() {
   const indiceDestacadoNaSerie = riscoSelecionado
     ? serieTemporal.findIndex((p) => p.competenciaId === riscoSelecionado.competencia.id)
     : -1;
+
+  /**
+   * RiskConfigs DISTINTAS entre os riscos da selecao atual. `riscosNaSelecao`
+   * traz uma linha por competencia - sem deduplicar, o seletor listava a
+   * mesma config uma vez por competencia (12 opcoes identicas com a carga
+   * REAL de 2024, alem de chave React duplicada). O seletor escolhe uma
+   * CONFIGURACAO, nao uma competencia.
+   */
+  const configuracoesDisponiveis = useMemo(() => {
+    const vistas = new Map<number, { riskConfigId: number; origem: RiscoDoMunicipioDTO['origem'] }>();
+    for (const r of riscosNaSelecao) {
+      if (!vistas.has(r.riskConfigId)) vistas.set(r.riskConfigId, { riskConfigId: r.riskConfigId, origem: r.origem });
+    }
+    return [...vistas.values()].sort((a, b) => b.riskConfigId - a.riskConfigId);
+  }, [riscosNaSelecao]);
 
   /** Outras competencias com Radar calculado para este municipio, para o aviso "existe dado em outro periodo" - nunca exibidas automaticamente no lugar da selecionada. */
   const competenciasDisponiveis = useMemo(() => {
@@ -237,16 +285,16 @@ export default function MunicipioDetalhePage() {
           <>
             <section className="grid gap-6 xl:grid-cols-[1fr_1.4fr]">
               <div className="space-y-3">
-                {riscosNaSelecao.length > 1 && (
+                {configuracoesDisponiveis.length > 1 && (
                   <label className="flex items-center gap-2 text-sm text-muted-foreground">
                     Configuração
                     <Select
                       value={riscoSelecionado.riskConfigId}
                       onChange={(evento) => setFiltro('riskConfigId', Number(evento.target.value))}
                     >
-                      {riscosNaSelecao.map((r) => (
-                        <option key={r.riskConfigId} value={r.riskConfigId}>
-                          config #{r.riskConfigId} · {r.origem}
+                      {configuracoesDisponiveis.map((c) => (
+                        <option key={c.riskConfigId} value={c.riskConfigId}>
+                          config #{c.riskConfigId} · {c.origem}
                         </option>
                       ))}
                     </Select>
@@ -288,6 +336,25 @@ export default function MunicipioDetalhePage() {
             </section>
           </>
         )}
+
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Fluxo assistencial</h2>
+            <p className="text-xs text-muted-foreground">
+              Onde os residentes deste município se internam — e quem este município atende
+            </p>
+          </div>
+          {fluxo.tipo === 'carregando' && <LoadingState label="Carregando fluxo assistencial..." />}
+          {fluxo.tipo === 'erro' && <ErrorState description={fluxo.mensagem} />}
+          {fluxo.tipo === 'indisponivel' && (
+            <EmptyState
+              title="Fluxo assistencial não disponível."
+              description="Nenhum ano de fluxo (SIH/SUS) carregado para este município."
+              className="py-10"
+            />
+          )}
+          {fluxo.tipo === 'pronto' && <FluxoPanel fluxo={fluxo.fluxo} />}
+        </section>
 
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-foreground">Indicadores</h2>

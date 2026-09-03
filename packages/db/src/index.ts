@@ -23,3 +23,4 @@ export * from './repositories/risk.js';
 export * from './repositories/catalog.js';
 export * from './repositories/riskQuery.js';
 export * from './repositories/radarQuery.js';
+export * from './repositories/fluxoQuery.js';

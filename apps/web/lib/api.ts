@@ -1,6 +1,9 @@
 import type {
   ApiErrorDTO,
   CompetenciaDTO,
+  FluxoFiltroResolvidoDTO,
+  FluxoMunicipioDTO,
+  PoloAtendimentoDTO,
   IndicadorDefinicaoDTO,
   MunicipioDetalheDTO,
   MunicipioResumoDTO,
@@ -150,6 +153,27 @@ export async function getRisk(params: RiskFiltros & { page?: number; pageSize?: 
   return fetchApi(`/api/risk${toQueryString(params)}`);
 }
 
+/**
+ * TODAS as linhas de RiskScore da competencia/config resolvidas, paginando por
+ * baixo dos panos - mesmo motivo de getTodosMunicipios: `/api/risk` limita
+ * pageSize a 200, mas a base REAL tem 645 municipios. Chamar com pageSize:200
+ * e tratar como se fosse tudo devolve so os 200 de maior indice (a API ordena
+ * por indice desc), o que enviesa qualquer KPI de media/contagem e deixa 445
+ * municipios sem cor no mapa.
+ */
+export async function getTodosRisk(params: RiskFiltros = {}): Promise<RiskListEnvelope> {
+  const primeira = await getRisk({ ...params, page: 1, pageSize: MUNICIPIOS_PAGE_SIZE_MAXIMO });
+  const { totalPages } = primeira.meta.pagination;
+  if (totalPages <= 1) return primeira;
+
+  const demais = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, indice) =>
+      getRisk({ ...params, page: indice + 2, pageSize: MUNICIPIOS_PAGE_SIZE_MAXIMO }),
+    ),
+  );
+  return { data: [primeira, ...demais].flatMap((r) => r.data), meta: primeira.meta };
+}
+
 export async function getRiskMunicipio(municipioId: number, params: RiskFiltros = {}): Promise<RiskItemEnvelope> {
   return fetchApi(`/api/risk/${municipioId}${toQueryString(params)}`);
 }
@@ -165,6 +189,28 @@ export async function getRiskComponentes(
 export interface RadarMunicipalEnvelope {
   data: RadarMunicipalItemDTO[];
   meta: { filtros: RadarMunicipalFiltroResolvidoDTO };
+}
+
+/** Fluxo assistencial (Fase 5.8) - residencia -> internacao, grao anual. */
+export interface FluxoMunicipioEnvelope {
+  data: FluxoMunicipioDTO | null;
+  meta: { filtros: FluxoFiltroResolvidoDTO };
+}
+
+export interface PolosEnvelope {
+  data: PoloAtendimentoDTO[];
+  meta: { filtros: FluxoFiltroResolvidoDTO };
+}
+
+export async function getFluxoMunicipio(
+  municipioId: number,
+  params: { ano?: number } = {},
+): Promise<FluxoMunicipioEnvelope> {
+  return fetchApi(`/api/fluxo/municipios/${municipioId}${toQueryString(params)}`);
+}
+
+export async function getPolosAtendimento(params: { ano?: number; limite?: number } = {}): Promise<PolosEnvelope> {
+  return fetchApi(`/api/fluxo/polos${toQueryString(params)}`);
 }
 
 export async function getIndicadorMunicipios(params: {

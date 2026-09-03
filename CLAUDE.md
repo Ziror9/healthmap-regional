@@ -16,7 +16,7 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5.7 (Radar Municipal, mapa interativo por indicador)
+**Estado atual: Fase 5.8 (fluxo assistencial + hierarquia de informacao)
 concluida, parcialmente.** Schema, migrations, base DEMO, motor de risco
 (`packages/risk`), API REST somente-leitura (`apps/api`) e um dashboard
 navegavel (`apps/web`) existem e estao validados - publico, sem
@@ -26,7 +26,18 @@ indicador (internacoes, taxa de internacao, obitos oncologicos, mortalidade
 oncologica, RiskScore, vulnerabilidade), com ranking e painel de
 detalhamento -, Municipios, detalhe de municipio, Metodologia, Sobre),
 identidade visual propria (tema claro, azul institucional, escala de risco
-nunca so cor).
+nunca so cor). A navegacao e a Visao Geral seguem tres niveis explicitos
+(Situacao -> Analise -> Investigacao, Fase 5.8).
+
+**Fluxo assistencial REAL entrou na Fase 5.8** (`gold.FatoFluxoInternacao`,
+SIH/SUS): par ordenado municipio de residencia -> municipio de internacao,
+grao ANUAL, supressao n<5 decidida uma vez sobre o total do par. 3.555 pares
+em 2024 (1.838 visiveis, 183.193 internacoes), 645 origens e 292 destinos -
+revela os polos de tratamento (Sao Paulo, Jau, Barretos...). E a UNICA tabela
+que carrega os dois eixos na mesma linha: o invariante #4 proibe compor um
+NUMERO misturando residencia e internacao, nao registrar o par ordenado, que
+e irrecuperavel a partir das agregacoes marginais existentes (ver
+`docs/fase-5.8-relatorio.md` #2 e #4).
 
 **Dados REAL** (via `etl/`, pacote Python, escreve direto no Postgres,
 convivendo sem mistura com os 15 municipios DEMO - prefixo `36xxxxx`):
@@ -79,7 +90,8 @@ Ver
 [`docs/fase-5.6-relatorio.md`](docs/fase-5.6-relatorio.md) (Fase 5.5 -
 Radar Regional - implementada e testada, relatorio dedicado ainda
 pendente de redacao, ver `docs/known-limitations.md`) e
-[`docs/fase-5.7-relatorio.md`](docs/fase-5.7-relatorio.md).
+[`docs/fase-5.7-relatorio.md`](docs/fase-5.7-relatorio.md) e
+[`docs/fase-5.8-relatorio.md`](docs/fase-5.8-relatorio.md).
 
 ## Objetivo
 

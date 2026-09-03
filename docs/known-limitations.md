@@ -52,6 +52,27 @@
   RiskScore nao tem grao anual proprio - o filtro "Ano" resolve para a
   competencia mais recente daquele ano com RiskScore calculado, sem criar
   metodologia nova. Ver `docs/fase-5.7-relatorio.md`.
+- **Fluxo assistencial (Fase 5.8) cobre 51,7% dos pares, mas ~94% do
+  volume.** `gold.FatoFluxoInternacao` (SIH/SUS 2024) tem 3.555 pares
+  origem->destino, dos quais 1.717 suprimidos (n<5) - a supressao atinge
+  muitos pares pequenos, mas pouco volume (183.193 das ~195 mil internacoes
+  ficam visiveis). Pares com origem OU destino fora dos 645 municipios de SP
+  (8.614 registros: paciente de outra UF, ou internado fora do estado) sao
+  excluidos, nunca imputados. Cobre so internacao oncologica pelo SUS - nao
+  inclui saude suplementar nem tratamento ambulatorial (SIA nao ingerido). A
+  "taxa de atendimento fora do municipio" e um indicador DERIVADO calculado
+  so sobre o volume visivel, nunca apresentado como dado observado.
+- **A RiskConfig REAL (`fase5.4-real`, id 4) tem scores DEMO misturados
+  (achado da Fase 5.8, NAO corrigido).** `calculate-risk-demo.ts` grava
+  scores DEMO para todas as RiskConfigs com componentes ativos, inclusive a
+  REAL: hoje a config 4 tem 7.740 scores REAL (2024) e 12 DEMO (2025). Como
+  as competencias DEMO sao posteriores, a resolucao default do Radar caia
+  numa competencia DEMO e a Visao Geral abria com 3 municipios sinteticos.
+  Contornado sem tocar no dado: quando o cliente pede `origem`
+  explicitamente, a competencia default passa a considerar a origem (ver
+  `docs/fase-5.8-relatorio.md` #10), e a Visao Geral pede REAL por padrao. A
+  poluicao em si continua no banco e exige decisao (ajustar o script DEMO
+  e/ou remover as linhas afeta dado existente).
 - **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
   Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
   entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase
