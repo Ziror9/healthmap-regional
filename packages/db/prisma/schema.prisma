@@ -213,6 +213,7 @@ model Municipio {
   fatosInternacaoResidencia FatoInternacaoResidencia[]
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
+  fatosInternacaoResidenciaAnual FatoInternacaoResidenciaAnual[]
   fluxosComoOrigem          FatoFluxoInternacao[] @relation("FluxoOrigem")
   fluxosComoDestino         FatoFluxoInternacao[] @relation("FluxoDestino")
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
@@ -269,6 +270,7 @@ model GrupoCid {
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosFluxoInternacao      FatoFluxoInternacao[]
+  fatosInternacaoResidenciaAnual    FatoInternacaoResidenciaAnual[]
   fatosInternacaoResidenciaRegional FatoInternacaoResidenciaRegional[]
   fatosInternacaoLocalRegional      FatoInternacaoLocalRegional[]
 
@@ -409,6 +411,47 @@ model FatoInternacaoLocal {
   @@index([competenciaId])
   @@index([origem])
   @@index([execucaoId])
+  @@schema("gold")
+}
+
+/// Internacoes por municipio de RESIDENCIA no ANO (Fase 5.10).
+///
+/// POR QUE UMA TABELA NOVA, e nao uma agregacao de FatoInternacaoResidencia:
+/// aquela tabela tem grao municipio x competencia x grupoCid x faixaEtaria x
+/// sexo, e a supressao n<5 e aplicada NAQUELE grao, na ingestao. 81,5% das
+/// celulas (34.868 de 42.778) ficam suprimidas, e o valor delas e APAGADO -
+/// somar o que sobrou daria 126.282 de 195.119 internacoes, subestimando o
+/// total sem avisar. Reconstruir as celulas apagadas seria imputacao.
+/// Por isso o total anual e agregado do dado BRUTO (etl/ingest_sih.py), antes
+/// de qualquer supressao, e a regra n<5 e decidida UMA vez sobre o total do
+/// ano - mesma solucao ja adotada para FatoObitoResidencia na Fase 5.6.
+///
+/// NAO substitui FatoInternacaoResidencia (que continua servindo o recorte
+/// demografico) nem FatoFluxoInternacao (par origem->destino, Fase 5.8):
+/// sao produtos analiticos diferentes sobre a mesma fonte.
+model FatoInternacaoResidenciaAnual {
+  id Int @id @default(autoincrement())
+
+  municipioResidenciaId Int
+  municipioResidencia   Municipio @relation(fields: [municipioResidenciaId], references: [id])
+  ano                   Int
+  grupoCidId            Int
+  grupoCid              GrupoCid @relation(fields: [grupoCidId], references: [id])
+
+  /// NULL quando suprimido = true. NUNCA 0.
+  internacoes Int?
+  suprimido   Boolean @default(false)
+
+  origem     Origem
+  execucaoId String
+  execucao   IngestaoExecucao @relation(fields: [execucaoId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([municipioResidenciaId, ano, grupoCidId])
+  @@index([ano])
+  @@index([origem])
   @@schema("gold")
 }
 
@@ -867,6 +910,7 @@ model IngestaoExecucao {
   fatosObitoResidencia      FatoObitoResidencia[]
   fatosInternacaoLocal      FatoInternacaoLocal[]
   fatosFluxoInternacao      FatoFluxoInternacao[]
+  fatosInternacaoResidenciaAnual FatoInternacaoResidenciaAnual[]
   fatosCapacidadeLeitos     FatoCapacidadeLeitos[]
   populacoes                Populacao[]
   populacoesEstimadas       PopulacaoEstimada[]

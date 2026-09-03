@@ -135,11 +135,33 @@ describe('Fase 5.5 - Radar de Risco Regional (RiskComponenteValorRegional / Risk
     expect(disponivel).toBeGreaterThan(20);
   });
 
-  it('VULNERABILIDADE regional (media ponderada do IPVS municipal) esta disponivel para todas as regioes', async () => {
+  it('VULNERABILIDADE regional (media ponderada do IPVS municipal) esta disponivel para todas as regioes, em todas as competencias REAL', async () => {
+    // Fase 5.10: mesmo motivo de fase5.4.test.ts - o numero de competencias
+    // REAL deixou de ser 4. O esperado e derivado do banco (regioes com
+    // Radar regional x competencias com Radar regional), nao hardcoded.
+    // Só as regiões que efetivamente têm VULNERABILIDADE disponível: a
+    // tabela tem linha para as 22 RegiaoSaude (17 DRS + 5 DEMO
+    // "ilustrativa"), mas o IPVS só cobre as 17 REAL - contar as linhas
+    // existentes em vez das disponíveis inflaria o esperado.
+    const [regioes, competencias] = await Promise.all([
+      prisma.riskComponenteValorRegional.findMany({
+        where: { origem: 'REAL', componente: 'VULNERABILIDADE', disponivel: true },
+        select: { regiaoSaudeId: true },
+        distinct: ['regiaoSaudeId'],
+      }),
+      prisma.riskComponenteValorRegional.findMany({
+        where: { origem: 'REAL' },
+        select: { competenciaId: true },
+        distinct: ['competenciaId'],
+      }),
+    ]);
+
     const disponivel = await prisma.riskComponenteValorRegional.count({
       where: { origem: 'REAL', componente: 'VULNERABILIDADE', disponivel: true },
     });
-    expect(disponivel).toBe(17 * 4);
+    expect(regioes.length).toBeGreaterThan(0);
+    expect(competencias.length).toBeGreaterThan(0);
+    expect(disponivel).toBe(regioes.length * competencias.length);
   });
 
   it('classificacao cobre uma distribuicao razoavel sobre 17 regioes (nao concentrada num unico valor)', async () => {

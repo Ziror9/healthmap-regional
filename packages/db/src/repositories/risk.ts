@@ -128,9 +128,31 @@ export async function getCompetencias(
   });
 }
 
+/**
+ * RiskConfigs do SEED da Fase 2 - as unicas que calculate-risk-demo.ts pode
+ * usar.
+ *
+ * Correcao da Fase 5.10: o filtro era `componentes: { some: {} }`, ou seja,
+ * QUALQUER config com componentes. Isso incluia a `fase5.4-real`, criada
+ * depois por calculate-risk-real.ts, e fazia a execucao DEMO gravar
+ * RiskScore/RiskComponenteValor com origem DEMO dentro da config REAL. Os
+ * conjuntos nunca se sobrepuseram (municipios e competencias disjuntos, ver
+ * docs/fase-5.10-relatorio.md), mas a config REAL passava a ter competencias
+ * DEMO mais recentes, o que envenenava a resolucao de competencia default da
+ * API.
+ *
+ * O recorte por `autor` e o mesmo criterio que o seed usa para nomear suas
+ * configs (`seed-fase2-a`/`seed-fase2-b`, ver seed-demo.ts) - nenhum peso,
+ * componente ou limiar e alterado aqui.
+ */
+export const AUTOR_PREFIXO_RISK_CONFIG_SEED = 'seed-fase2';
+
 export async function getRiskConfigsFase2(prisma: PrismaClient): Promise<RiskConfigRef[]> {
   const configs = await prisma.riskConfig.findMany({
-    where: { componentes: { some: {} } },
+    where: {
+      componentes: { some: {} },
+      autor: { startsWith: AUTOR_PREFIXO_RISK_CONFIG_SEED },
+    },
     include: { componentes: { where: { ativo: true } } },
     orderBy: { id: 'asc' },
   });
@@ -214,6 +236,47 @@ export async function getAgregadoInternacaoResidenciaAnual(
     municipioId: l.municipioId,
     internacoesTotal: l.internacoesTotal === null ? null : Number(l.internacoesTotal),
   }));
+}
+
+/**
+ * Total anual de internacoes por municipio de residencia, lido de
+ * `gold.FatoInternacaoResidenciaAnual` (Fase 5.10).
+ *
+ * Substitui getAgregadoInternacaoResidenciaAnual como insumo de
+ * TAXA_INTERNACAO_10K_HAB. A funcao acima soma celulas JA suprimidas com
+ * `bool_or`: como 81,5% das celulas finas (competencia x faixaEtaria x sexo)
+ * ficam abaixo de n<5, praticamente todo municipio tinha o ano inteiro
+ * anulado - a cobertura era de 1 municipio em 645. Aqui o total ja veio
+ * agregado do dado BRUTO pelo ETL, com a supressao decidida uma unica vez
+ * sobre o total do ano.
+ *
+ * A funcao antiga continua existindo (nao e removida): ela representa o
+ * total anual DO RECORTE DEMOGRAFICO, que e uma leitura diferente e continua
+ * valida para quem precisar do detalhe por faixa/sexo.
+ */
+export async function getAgregadoInternacaoResidenciaAnualDireto(
+  prisma: PrismaClient,
+  ano: number,
+): Promise<AgregadoInternacaoResidencia[]> {
+  const linhas = await prisma.fatoInternacaoResidenciaAnual.findMany({
+    where: { ano, origem: 'REAL' },
+    select: { municipioResidenciaId: true, internacoes: true, suprimido: true },
+  });
+  return linhas.map((l) => ({
+    municipioId: l.municipioResidenciaId,
+    internacoesTotal: l.suprimido ? null : l.internacoes,
+  }));
+}
+
+/** Anos com pelo menos 1 linha em FatoInternacaoResidenciaAnual (Fase 5.10). */
+export async function getAnosComInternacaoResidenciaAnual(prisma: PrismaClient): Promise<number[]> {
+  const linhas = await prisma.fatoInternacaoResidenciaAnual.findMany({
+    where: { origem: 'REAL' },
+    select: { ano: true },
+    distinct: ['ano'],
+    orderBy: { ano: 'asc' },
+  });
+  return linhas.map((l) => l.ano);
 }
 
 /**

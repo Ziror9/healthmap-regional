@@ -29,8 +29,8 @@ import {
   getPrismaClient,
   disconnectPrisma,
   getMunicipios,
-  getCompetencias,
-  getAgregadoInternacaoResidenciaAnual,
+  getAnosComInternacaoResidenciaAnual,
+  getAgregadoInternacaoResidenciaAnualDireto,
   getAgregadoPopulacao,
   getAgregadoPopulacaoEstimada,
   salvarIndicadorMunicipal,
@@ -76,8 +76,10 @@ async function run(): Promise<void> {
   });
 
   const municipios = await getMunicipios(prisma, { apenasReal: true });
-  const competencias = await getCompetencias(prisma, { apenasReal: true });
-  const anosDistintos = [...new Set(competencias.map((c) => c.ano))];
+  // Fase 5.10: os anos vem de FatoInternacaoResidenciaAnual (agregado do dado
+  // bruto pelo ETL) em vez das competencias REAL - o insumo da taxa passou a
+  // ser o total anual, nao a soma de celulas ja suprimidas.
+  const anosDistintos = await getAnosComInternacaoResidenciaAnual(prisma);
   console.info(`[indicadores-real] ${municipios.length} municipios REAL, ${anosDistintos.length} ano(s) com competencia REAL: ${anosDistintos.join(', ')}`);
 
   let indicadoresSalvos = 0;
@@ -85,7 +87,7 @@ async function run(): Promise<void> {
 
   for (const ano of anosDistintos) {
     const [agregResidenciaAnual, agregPopCenso, agregPopEstimada] = await Promise.all([
-      getAgregadoInternacaoResidenciaAnual(prisma, ano),
+      getAgregadoInternacaoResidenciaAnualDireto(prisma, ano),
       getAgregadoPopulacao(prisma, ano),
       getAgregadoPopulacaoEstimada(prisma, ano),
     ]);

@@ -97,19 +97,45 @@ describe('Fase 5.4 - RiskConfig REAL v2 (fase5.4-real) - VULNERABILIDADE ativada
     expect(vulnerabilidade?.indicadorDefinicaoId).toBe(INDICADOR_VULNERABILIDADE);
   });
 
-  it('a RiskConfig anterior (fase5.3-real) nao foi alterada (RiskConfig nunca muda apos uso)', async () => {
-    const anterior = await prisma.riskConfig.findFirst({
-      where: { autor: 'fase5.3-real' },
-      include: { componentes: true },
+  /**
+   * ATUALIZADO na Fase 5.10. O teste original verificava que a config
+   * "fase5.3-real" nao havia sido alterada - mas essa config nunca existiu
+   * em nenhum commit (ver cabecalho de fase5.3.test.ts). O principio que ele
+   * queria proteger ("RiskConfig nunca muda apos uso") continua valido e e
+   * testado aqui de forma observavel: reexecutar o calculo REAL nao cria uma
+   * config nova nem duplica a existente.
+   */
+  it('RiskConfig nunca muda apos uso: existe uma unica config REAL, e as configs DEMO do seed seguem separadas', async () => {
+    const configsReal = await prisma.riskConfig.findMany({ where: { autor: 'fase5.4-real' } });
+    expect(configsReal.length).toBe(1);
+
+    // Fase 5.10 (isolamento REAL/DEMO): nenhuma linha DEMO pode viver dentro
+    // da config REAL - calculate-risk-demo.ts so enxerga as configs do seed.
+    const demoNaConfigReal = await prisma.riskScore.count({
+      where: { origem: 'DEMO', riskConfigId: configsReal[0]!.id },
     });
-    expect(anterior).not.toBeNull();
-    const vulnerabilidade = anterior?.componentes.find((c) => c.componente === 'VULNERABILIDADE');
-    expect(vulnerabilidade?.indicadorDefinicaoId).toBeNull();
+    const componentesDemoNaConfigReal = await prisma.riskComponenteValor.count({
+      where: { origem: 'DEMO', riskConfigId: configsReal[0]!.id },
+    });
+    expect(demoNaConfigReal).toBe(0);
+    expect(componentesDemoNaConfigReal).toBe(0);
   });
 });
 
 describe('Fase 5.4 - Radar REAL com VULNERABILIDADE (cobertura ampliada)', () => {
-  it('VULNERABILIDADE REAL esta disponivel para todos os 645 municipios (IPVS cobre 100%)', async () => {
+  it('VULNERABILIDADE REAL esta disponivel para todos os 645 municipios, em todas as competencias REAL (IPVS cobre 100%)', async () => {
+    // Fase 5.10: o numero de competencias REAL nao e fixo (eram 4, hoje sao
+    // 12 - o catalogo do pySUS passou a servir o ano completo). O invariante
+    // que importa e "IPVS cobre 100% dos municipios em TODA competencia
+    // calculada", entao o esperado e derivado do proprio banco em vez de
+    // hardcoded - assim o teste nao volta a quebrar quando a cobertura mudar.
+    const competenciasComRadarReal = await prisma.riskComponenteValor.findMany({
+      where: { origem: 'REAL', riskConfig: { autor: 'fase5.4-real' } },
+      select: { competenciaId: true },
+      distinct: ['competenciaId'],
+    });
+    const municipiosReal = await prisma.municipio.count({ where: { codigoIbge7: { startsWith: '35' } } });
+
     const disponivel = await prisma.riskComponenteValor.count({
       where: {
         origem: 'REAL',
@@ -118,19 +144,38 @@ describe('Fase 5.4 - Radar REAL com VULNERABILIDADE (cobertura ampliada)', () =>
         riskConfig: { autor: 'fase5.4-real' },
       },
     });
-    // 645 municipios x 4 competencias REAL
-    expect(disponivel).toBe(645 * 4);
+    expect(competenciasComRadarReal.length).toBeGreaterThan(0);
+    expect(disponivel).toBe(municipiosReal * competenciasComRadarReal.length);
   });
 
-  it('RiskScore REAL da config fase5.4-real cobre muito mais municipios que a config fase5.3-real (VULNERABILIDADE preenche a lacuna de PRESSAO suprimida)', async () => {
-    const configAntiga = await prisma.riskConfig.findFirstOrThrow({ where: { autor: 'fase5.3-real' } });
+  /**
+   * ATUALIZADO na Fase 5.10. O teste original comparava a cobertura da
+   * config REAL com a da "fase5.3-real" - config que nunca existiu. O
+   * resultado que ele queria demonstrar (VULNERABILIDADE preenche a lacuna
+   * deixada por PRESSAO suprimida, levando o Radar a classificar todos os
+   * municipios) e verificavel diretamente, sem depender da config fantasma.
+   */
+  it('com VULNERABILIDADE cobrindo 100%, o Radar REAL classifica TODOS os municipios, mesmo onde PRESSAO esta indisponivel', async () => {
     const configNova = await prisma.riskConfig.findFirstOrThrow({ where: { autor: 'fase5.4-real' } });
-    const totalAntigo = await prisma.riskScore.count({ where: { origem: 'REAL', riskConfigId: configAntiga.id } });
-    const totalNovo = await prisma.riskScore.count({ where: { origem: 'REAL', riskConfigId: configNova.id } });
-    expect(totalNovo).toBeGreaterThan(totalAntigo);
-    // com VULNERABILIDADE cobrindo 100% dos municipios, o Radar passa a
-    // classificar a maioria deles (nao mais preso a disponibilidade de SIH+CNES)
-    expect(totalNovo).toBeGreaterThan(2000);
+    const municipiosReal = await prisma.municipio.count({ where: { codigoIbge7: { startsWith: '35' } } });
+
+    const competencias = await prisma.riskScore.findMany({
+      where: { origem: 'REAL', riskConfigId: configNova.id },
+      select: { competenciaId: true },
+      distinct: ['competenciaId'],
+    });
+    const totalScores = await prisma.riskScore.count({ where: { origem: 'REAL', riskConfigId: configNova.id } });
+
+    // Todo municipio REAL tem score em toda competencia calculada.
+    expect(totalScores).toBe(municipiosReal * competencias.length);
+
+    // E isso acontece apesar de PRESSAO estar indisponivel na maioria das
+    // competencias (CNES historico so cobre parte delas) - prova de que a
+    // renormalizacao de pesos sobre os componentes disponiveis esta operando.
+    const pressaoIndisponivel = await prisma.riskComponenteValor.count({
+      where: { origem: 'REAL', riskConfigId: configNova.id, componente: 'PRESSAO_HOSPITALAR_ESTIMADA', disponivel: false },
+    });
+    expect(pressaoIndisponivel).toBeGreaterThan(0);
   });
 
   it('a classificacao por quintil produz uma distribuicao equilibrada sobre a coorte REAL ampliada', async () => {

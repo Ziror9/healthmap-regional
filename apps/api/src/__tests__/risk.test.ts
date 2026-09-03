@@ -85,8 +85,14 @@ describe('GET /api/risk', () => {
       expect(item.classificacao).toBeTruthy();
       expect(item.confiabilidade).toBeTruthy();
       expect(item.natureza).toBeTruthy();
-      // dados DEMO continuam explicitamente identificados em cada item
-      expect(item.origem).toBe('DEMO');
+      // ATUALIZADO na Fase 5.10: antes este teste exigia origem 'DEMO', o
+      // que so era verdade porque a config REAL estava poluida com linhas
+      // DEMO de competencias mais recentes (2025). Com o isolamento
+      // corrigido, o default resolve para REAL. O invariante que importa nao
+      // e QUAL origem sai, e sim que ela vem preenchida e que a lista nunca
+      // mistura duas origens (garantido pelo 409 ORIGEM_AMBIGUA).
+      expect(item.origem).toBe(body.data[0]!.origem);
+      expect(['REAL', 'DEMO']).toContain(item.origem);
       // indicador de frescor (Fase 4): timestamp real de calculo, nao fabricado
       expect(new Date(item.calculadoEm).toString()).not.toBe('Invalid Date');
     }
@@ -156,7 +162,16 @@ describe('GET /api/risk', () => {
     expect(scoreDemo).not.toBeNull();
     if (!scoreDemo) return;
 
-    const res = await fetch(`${baseUrl}/api/risk?origem=DEMO&competenciaId=${scoreDemo.competenciaId}`);
+    // ATUALIZADO na Fase 5.10: passou a informar tambem o riskConfigId. Com
+    // o isolamento REAL/DEMO corrigido, os RiskScore DEMO vivem apenas nas
+    // configs do seed (`seed-fase2-*`), enquanto o default de riskConfig
+    // continua sendo a config utilizavel mais recente - a REAL. Informar so
+    // a competencia resolveria para a config REAL, que (corretamente) nao
+    // tem nenhuma linha DEMO. O invariante testado aqui e "filtrar por
+    // origem devolve so aquela origem", nao a resolucao de config default.
+    const res = await fetch(
+      `${baseUrl}/api/risk?origem=DEMO&competenciaId=${scoreDemo.competenciaId}&riskConfigId=${scoreDemo.riskConfigId}`,
+    );
     expect(res.status).toBe(200);
     const body = await readJson<ApiListEnvelope<RiskScoreItem>>(res);
     expect(body.data.length).toBeGreaterThan(0);

@@ -246,6 +246,35 @@ def agregar_local(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) ->
     return agregado, sem_municipio
 
 
+def agregar_residencia_anual(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
+    """
+    FASE 5.10 - internacoes por municipio de RESIDENCIA, sem quebra
+    demografica, para somar no ANO.
+
+    Existe porque o total anual NAO pode ser derivado de
+    FatoInternacaoResidencia: la a supressao n<5 e aplicada por celula
+    (competencia x faixaEtaria x sexo) e o valor suprimido e APAGADO - 81,5%
+    das celulas ficam NULL, e somar o que sobra subestima o total sem avisar.
+    Aqui o total sai do dado bruto, e a supressao e decidida uma unica vez
+    sobre o total do ano (em run(), depois de todas as competencias) - mesma
+    solucao ja adotada para o SIM na Fase 5.6.
+
+    Nao altera agregar_residencia/agregar_local/agregar_fluxo: os quatro
+    agregados saem do MESMO dataframe `valido` e servem a produtos analiticos
+    diferentes.
+    """
+    df = df.copy()
+    df["municipioId"] = df["municipioResidenciaCodigo"].map(municipio_id_por_codigo6)
+    sem_municipio = int(df["municipioId"].isna().sum())
+    df = df[df["municipioId"].notna()]
+    if df.empty:
+        return df, sem_municipio
+
+    agregado = df.groupby(["municipioId"], as_index=False).agg(internacoes=("N_AIH", "count"))
+    agregado["municipioId"] = agregado["municipioId"].astype(int)
+    return agregado, sem_municipio
+
+
 def agregar_fluxo(df: pd.DataFrame, municipio_id_por_codigo6: dict[str, int]) -> tuple[pd.DataFrame, int]:
     """
     FASE 5.8 - fluxo assistencial: par ORDENADO (municipio de residencia ->
@@ -382,6 +411,44 @@ def gravar_local(
                     None if suprimido else int(linha.pacientesDia),
                     None if suprimido else int(linha.diariasUti),
                     None if suprimido else int(linha.obitos),
+                    suprimido, execucao_id, agora,
+                ),
+            )
+            gravados += 1
+    return gravados, rejeitados
+
+
+def gravar_residencia_anual(
+    conn: psycopg.Connection, agregado_anual: pd.DataFrame, ano: int, grupo_cid_id: int, execucao_id: str
+) -> tuple[int, int]:
+    """FASE 5.10 - grava o total anual por municipio. Supressao n<5 decidida aqui, uma unica vez, sobre o total do ano."""
+    agora = datetime.now(timezone.utc)
+    gravados = 0
+    rejeitados = 0
+    with conn.cursor() as cur:
+        for linha in agregado_anual.itertuples(index=False):
+            suprimido = linha.internacoes < LIMIAR_SUPRESSAO
+            if not suprimido and not _cell_valida(
+                conn, execucao_id, "sih_residencia_anual_valores_nao_negativos", {"internacoes": int(linha.internacoes)},
+            ):
+                rejeitados += 1
+                continue
+            cur.execute(
+                """
+                INSERT INTO gold."FatoInternacaoResidenciaAnual"
+                    ("municipioResidenciaId", ano, "grupoCidId", internacoes, suprimido, origem, "execucaoId", "updatedAt")
+                VALUES (%s, %s, %s, %s, %s, 'REAL', %s, %s)
+                ON CONFLICT ("municipioResidenciaId", ano, "grupoCidId")
+                DO UPDATE SET
+                    internacoes = EXCLUDED.internacoes,
+                    suprimido = EXCLUDED.suprimido,
+                    origem = EXCLUDED.origem,
+                    "execucaoId" = EXCLUDED."execucaoId",
+                    "updatedAt" = EXCLUDED."updatedAt"
+                """,
+                (
+                    int(linha.municipioId), ano, grupo_cid_id,
+                    None if suprimido else int(linha.internacoes),
                     suprimido, execucao_id, agora,
                 ),
             )
@@ -561,6 +628,7 @@ def run() -> None:
             "registros_rejeitados": 0,
             "fluxo_linhas_gravadas": 0,
             "fluxo_pares_sem_municipio": 0,
+            "residencia_anual_municipios": 0,
         }
 
         # FASE 5.8: o fluxo tem grao ANUAL, mas o SIH e lido competencia a
@@ -568,6 +636,9 @@ def run() -> None:
         # depois do loop, para que a supressao n<5 seja decidida uma unica vez
         # sobre o total do ano (mesma licao de grao da Fase 5.6).
         fluxo_parciais_por_ano: dict[int, list[pd.DataFrame]] = {}
+        # FASE 5.10: mesmo mecanismo para o total anual por municipio de
+        # residencia - acumula as parciais mensais e suprime uma vez no ano.
+        residencia_anual_parciais_por_ano: dict[int, list[pd.DataFrame]] = {}
 
         for ano, mes in COMPETENCIAS_POC:
             alvo = next((a for a in arquivos_disponiveis if a.ano == ano and a.mes == mes), None)
@@ -621,6 +692,11 @@ def run() -> None:
             if not fluxo_parcial.empty:
                 fluxo_parciais_por_ano.setdefault(ano, []).append(fluxo_parcial)
             resumo_geral["fluxo_pares_sem_municipio"] += sem_par_fluxo
+
+            # Fase 5.10: parcial do total anual por municipio de residencia.
+            residencia_anual_parcial, _ = agregar_residencia_anual(valido, municipio_id_por_codigo6)
+            if not residencia_anual_parcial.empty:
+                residencia_anual_parciais_por_ano.setdefault(ano, []).append(residencia_anual_parcial)
 
             lineage.registrar_qualidade_check(
                 conn, execucao_id=execucao.id, regra="sih_municipio_residencia_conhecido",
@@ -705,6 +781,36 @@ def run() -> None:
             resumo_geral["competencias_processadas"] += 1
             resumo_geral["registros_processados"] += estatisticas["validos_para_agregacao"]
             resumo_geral["registros_rejeitados"] += rejeitados_total
+
+        # ---------------------------------------------------------------
+        # FASE 5.10 - total anual por municipio de residencia.
+        # Soma as parciais mensais e decide a supressao UMA vez sobre o total
+        # do ano (ver docstring de agregar_residencia_anual).
+        # ---------------------------------------------------------------
+        for ano_anual, parciais_anual in sorted(residencia_anual_parciais_por_ano.items()):
+            consolidado_anual = (
+                pd.concat(parciais_anual, ignore_index=True)
+                .groupby(["municipioId"], as_index=False)
+                .agg(internacoes=("internacoes", "sum"))
+            )
+            execucao_anual = lineage.iniciar_execucao(
+                conn, fonte_dados_chave=FONTE_SIH, versao_pipeline=VERSAO_PIPELINE
+            )
+            gravados_anual, rejeitados_anual = gravar_residencia_anual(
+                conn, consolidado_anual, ano_anual, grupo_cid_id, execucao_anual.id
+            )
+            execucao_anual.linhas_processadas = gravados_anual
+            execucao_anual.linhas_rejeitadas = rejeitados_anual
+            execucao_anual.finalizar(status="SUCESSO" if rejeitados_anual == 0 else "PARCIAL")
+            conn.commit()
+
+            suprimidos_anual = int((consolidado_anual["internacoes"] < LIMIAR_SUPRESSAO).sum())
+            print(
+                f"[sih] ano {ano_anual}: [ANUAL] FatoInternacaoResidenciaAnual={gravados_anual} municipios "
+                f"({suprimidos_anual} suprimidos por n<{LIMIAR_SUPRESSAO}), "
+                f"total={int(consolidado_anual['internacoes'].sum())} internacoes"
+            )
+            resumo_geral["residencia_anual_municipios"] += gravados_anual
 
         # ---------------------------------------------------------------
         # FASE 5.8 - fluxo assistencial, grao ANUAL.

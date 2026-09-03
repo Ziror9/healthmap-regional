@@ -16,10 +16,15 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5.9 (real-first + limpeza analitica) concluida,
-parcialmente.** As analises do produto usam REAL; a base DEMO continua
-integra no banco e nos testes, mas nao alimenta mais as paginas analiticas
-(ver `docs/fase-5.9-relatorio.md`). Schema, migrations, base DEMO, motor de risco
+**Estado atual: Fase 5.10 (higienizacao REAL/DEMO + readequacao SIH)
+concluida.** As analises do produto usam REAL; a base DEMO continua integra
+no banco e nos testes, mas nao alimenta mais as paginas analiticas (Fase
+5.9). Na Fase 5.10 o isolamento REAL/DEMO das RiskConfigs foi corrigido na
+origem e `TAXA_INTERNACAO_10K_HAB` passou de 1 para 639 dos 645 municipios,
+via `gold.FatoInternacaoResidenciaAnual` (agregado do dado bruto, supressao
+n<5 decidida uma vez no ano - mesma solucao da Fase 5.6). RiskScore,
+RiskConfig, pesos e metodologia inalterados; suite 100% verde. Ver
+`docs/fase-5.9-relatorio.md` e `docs/fase-5.10-relatorio.md`. Schema, migrations, base DEMO, motor de risco
 (`packages/risk`), API REST somente-leitura (`apps/api`) e um dashboard
 navegavel (`apps/web`) existem e estao validados - publico, sem
 autenticacao. O frontend consome a API (Visao Geral com mapa real de SP em
@@ -94,7 +99,8 @@ Radar Regional - implementada e testada, relatorio dedicado ainda
 pendente de redacao, ver `docs/known-limitations.md`) e
 [`docs/fase-5.7-relatorio.md`](docs/fase-5.7-relatorio.md) e
 [`docs/fase-5.8-relatorio.md`](docs/fase-5.8-relatorio.md) e
-[`docs/fase-5.9-relatorio.md`](docs/fase-5.9-relatorio.md).
+[`docs/fase-5.9-relatorio.md`](docs/fase-5.9-relatorio.md) e
+[`docs/fase-5.10-relatorio.md`](docs/fase-5.10-relatorio.md).
 
 ## Objetivo
 

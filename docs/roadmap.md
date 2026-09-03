@@ -759,6 +759,58 @@ desenvolvimento. Atingido - validado no navegador e por teste automatizado.
 
 ---
 
+## Fase 5.10 - Higienizacao REAL/DEMO + readequacao SIH `CONCLUIDA`
+
+**Objetivo.** Fechamento tecnico dos tres pontos deixados em aberto pela
+auditoria da Fase 5.9, sem alterar nenhuma metodologia.
+
+**Entregas.**
+
+1. **Isolamento REAL/DEMO.** `getRiskConfigsFase2` passou a recortar pelas
+   configs do seed (`autor startsWith 'seed-fase2'`) - antes retornava
+   qualquer config com componentes, e por isso `calculate-risk-demo.ts`
+   gravava dentro da config REAL. As 372 linhas DEMO indevidas (12 RiskScore
+   + 360 RiskComponenteValor) foram removidas de forma direcionada, em
+   transacao, depois de provar que os conjuntos eram disjuntos em origem,
+   municipio e competencia (0 colisoes). Checksum do RiskScore REAL
+   verificado em 4 momentos: **identico** (`4273e1fc...`, 7.740 linhas).
+2. **Readequacao SIH.** Nova `gold.FatoInternacaoResidenciaAnual`
+   (municipio x ano x grupoCid, migration `fase5_10_internacao_residencia_anual`),
+   agregada do dado BRUTO pelo ETL com supressao decidida uma vez no ano.
+   `TAXA_INTERNACAO_10K_HAB` saiu de **1/645 para 639/645** municipios,
+   reutilizando `calcularTaxaPor10k` (nenhuma formula nova).
+   `FatoInternacaoResidencia` e `FatoFluxoInternacao` nao foram alteradas.
+3. **As 6 assercoes antigas** das Fases 5.3-5.5 classificadas e resolvidas
+   (todas ATUALIZAR, nenhuma silenciada com skip) - 4 dependiam de uma
+   RiskConfig `fase5.3-real` que nunca existiu em nenhum commit, 2 tinham
+   contagem fixa `x 4` competencias. As substitutas derivam o esperado do
+   proprio banco, para nao voltarem a quebrar.
+
+Detalhes completos: [`docs/fase-5.10-relatorio.md`](fase-5.10-relatorio.md).
+
+**Dependencias.** Fase 5.9.
+
+**RiskScore/RiskConfig/pesos/metodologia/fluxo:** nada alterado.
+
+**Testes:** suite 100% verde pela primeira vez - API 54/54, DB 132/132,
+Risk 43/43, ETL 117/117, typecheck/lint/build limpos.
+
+**Nao entregue nesta rodada:**
+
+- Pressao Hospitalar Estimada segue em 4 das 12 competencias
+  (`ingest_cnes_historico.py` pede 4, SIH pede 12) - alterar mudaria a
+  cobertura de um componente do Radar;
+- Resolucao default de `riskConfig` quando o cliente pede `origem=DEMO` sem
+  informar a config (devolve lista vazia) - mudanca de comportamento da API,
+  nao feita sem autorizacao.
+
+**Criterio de conclusao.** REAL/DEMO isolados, registros indevidos removidos
+com seguranca, RiskScore REAL identico, taxa de internacao readequada com
+supressao preservada, 6 assercoes resolvidas, suite verde, browser validado.
+Atingido.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

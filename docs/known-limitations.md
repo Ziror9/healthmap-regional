@@ -52,6 +52,23 @@
   RiskScore nao tem grao anual proprio - o filtro "Ano" resolve para a
   competencia mais recente daquele ano com RiskScore calculado, sem criar
   metodologia nova. Ver `docs/fase-5.7-relatorio.md`.
+- **`TAXA_INTERNACAO_10K_HAB` passou de 1/645 para 639/645 na Fase 5.10.**
+  O insumo deixou de ser a soma de celulas ja suprimidas de
+  `FatoInternacaoResidencia` (onde 81,5% das celulas finas ficam NULL e o
+  total anual do municipio era anulado) e passou a ser
+  `gold.FatoInternacaoResidenciaAnual`, agregado do dado BRUTO pelo ETL com
+  supressao n<5 decidida uma unica vez sobre o total do ano - mesma solucao
+  da Fase 5.6 para o SIM. Os 6 municipios restantes seguem suprimidos
+  (n<5 no ano), corretamente. `FatoInternacaoResidencia` NAO foi alterada e
+  continua servindo o recorte demografico. Ver `docs/fase-5.10-relatorio.md`.
+- **Isolamento REAL/DEMO das RiskConfigs corrigido (Fase 5.10).**
+  `getRiskConfigsFase2` filtrava qualquer config com componentes, o que fazia
+  `calculate-risk-demo.ts` gravar linhas DEMO dentro da config REAL. Passou a
+  recortar pelas configs do seed (`autor startsWith 'seed-fase2'`), e as 372
+  linhas DEMO indevidas (12 RiskScore + 360 RiskComponenteValor) foram
+  removidas de forma direcionada, apos provar que os conjuntos eram disjuntos
+  em origem, municipio e competencia. O checksum do RiskScore REAL
+  (`4273e1fc...`, 7.740 linhas) permaneceu identico antes e depois.
 - **As analises do produto usam REAL; DEMO ficou restrito a
   desenvolvimento/testes (Fase 5.9).** `/`, `/radar`, `/radar-municipal` e o
   catalogo `/municipios` passaram a usar REAL por padrao. A base DEMO (15

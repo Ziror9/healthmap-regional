@@ -11,10 +11,10 @@
 import type { PrismaClient } from '@prisma/client';
 import { listMunicipios } from './catalog.js';
 import {
-  getAgregadoInternacaoResidenciaAnual,
+  getAgregadoInternacaoResidenciaAnualDireto,
   getAgregadoObitoResidenciaAnual,
+  getAnosComInternacaoResidenciaAnual,
   getAnosComObitoResidenciaReal,
-  getCompetencias,
   getIndicadorMunicipalPorDefinicao,
 } from './risk.js';
 import { listRiskScores, type OrigemValor } from './riskQuery.js';
@@ -59,9 +59,20 @@ function montarLista(
   });
 }
 
-/** Internacoes REAL (total bruto anual, `gold.FatoInternacaoResidencia`) - reaproveita getAgregadoInternacaoResidenciaAnual (Fase 2/5.2), ja com bool_or(suprimido). */
+/**
+ * Internacoes REAL (total anual por municipio de residencia).
+ *
+ * Fase 5.10: passou a ler `gold.FatoInternacaoResidenciaAnual` (agregado do
+ * dado bruto pelo ETL, supressao decidida uma vez no ano) em vez de somar
+ * celulas ja suprimidas de FatoInternacaoResidencia - que devolvia 1
+ * municipio em 645. E a MESMA fonte que alimenta TAXA_INTERNACAO_10K_HAB,
+ * para que "internacoes" signifique o mesmo numero em todo o produto.
+ */
 export async function listInternacoesAnualPorMunicipio(prisma: PrismaClient, ano: number): Promise<RadarMunicipalValor[]> {
-  const [agregado, municipios] = await Promise.all([getAgregadoInternacaoResidenciaAnual(prisma, ano), listarMunicipiosReal(prisma)]);
+  const [agregado, municipios] = await Promise.all([
+    getAgregadoInternacaoResidenciaAnualDireto(prisma, ano),
+    listarMunicipiosReal(prisma),
+  ]);
   const porMunicipio = new Map(agregado.map((a) => [a.municipioId, { valor: a.internacoesTotal, existe: true }]));
   return montarLista(municipios, porMunicipio, MOTIVO_SEM_FATO);
 }
@@ -122,11 +133,11 @@ export interface TotalAnualMunicipio {
  * anuais acima; so filtra para 1 municipio em vez de devolver os 645.
  */
 export async function getInternacoesAnuaisMunicipio(prisma: PrismaClient, municipioId: number): Promise<TotalAnualMunicipio[]> {
-  const competencias = await getCompetencias(prisma, { apenasReal: true });
-  const anos = [...new Set(competencias.map((c) => c.ano))].sort((a, b) => a - b);
+  // Fase 5.10: mesma fonte da listagem em bloco e da taxa por 10 mil.
+  const anos = await getAnosComInternacaoResidenciaAnual(prisma);
   const porAno = await Promise.all(
     anos.map(async (ano) => {
-      const agregado = await getAgregadoInternacaoResidenciaAnual(prisma, ano);
+      const agregado = await getAgregadoInternacaoResidenciaAnualDireto(prisma, ano);
       const linha = agregado.find((a) => a.municipioId === municipioId);
       return { ano, total: linha?.internacoesTotal ?? null, disponivel: linha !== undefined && linha.internacoesTotal !== null };
     }),

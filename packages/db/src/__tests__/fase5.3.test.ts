@@ -98,24 +98,51 @@ describe('Fase 5.3 - CNES historico REAL (FatoCapacidadeLeitos, grupo LT via pyS
   });
 });
 
+/**
+ * ATUALIZADO na Fase 5.10. Os dois testes originais buscavam uma RiskConfig
+ * com autor "fase5.3-real" - que NUNCA existiu em nenhum commit: `git log -p`
+ * mostra que calculate-risk-real.ts sempre usou `fase5.4-real` como unico
+ * valor de AUTOR_RISK_CONFIG_REAL, desde o commit que o criou. Os testes
+ * descreviam uma progressao de configs (5.3 -> 5.4) que o codigo nunca
+ * implementou, e so passavam contra um banco que tinha essa linha por
+ * execucao manual anterior.
+ *
+ * O que era realmente valioso neles - "existe uma config REAL, nao oficial,
+ * com os 4 componentes estruturais" e "VULNERABILIDADE so aponta um
+ * indicador quando ele existe" - foi preservado abaixo, contra a config que
+ * o codigo de fato cria.
+ */
 describe('Fase 5.3 - RiskConfig REAL', () => {
-  it('existe uma RiskConfig com autor "fase5.3-real", nao oficial, com os 4 componentes estruturais', async () => {
-    const riskConfig = await prisma.riskConfig.findFirst({
-      where: { autor: 'fase5.3-real' },
+  it('existe exatamente UMA RiskConfig REAL, nao oficial, com os 4 componentes estruturais', async () => {
+    const configs = await prisma.riskConfig.findMany({
+      where: { autor: 'fase5.4-real' },
       include: { componentes: true },
     });
-    expect(riskConfig).not.toBeNull();
-    expect(riskConfig?.oficial).toBe(false);
-    expect(riskConfig?.componentes.length).toBe(4);
+    // Uma so: calculate-risk-real.ts reaproveita a existente em vez de criar
+    // outra a cada execucao (RiskConfig nunca muda apos uso - config nova
+    // seria linha nova, e nao ha motivo para uma nova aqui).
+    expect(configs.length).toBe(1);
+    expect(configs[0]?.oficial).toBe(false);
+    expect(configs[0]?.componentes.length).toBe(4);
   });
 
-  it('componente VULNERABILIDADE nao tem indicadorDefinicaoId configurado (nenhuma fonte REAL integrada nesta fase)', async () => {
+  it('VULNERABILIDADE so aponta indicadorDefinicaoId quando a fonte REAL existe (resolvido dinamicamente, nunca hardcoded)', async () => {
     const riskConfig = await prisma.riskConfig.findFirstOrThrow({
-      where: { autor: 'fase5.3-real' },
+      where: { autor: 'fase5.4-real' },
       include: { componentes: true },
     });
     const vulnerabilidade = riskConfig.componentes.find((c) => c.componente === 'VULNERABILIDADE');
-    expect(vulnerabilidade?.indicadorDefinicaoId).toBeNull();
+    const ipvsExiste = await prisma.indicadorDefinicao.findUnique({ where: { chave: 'IPVS_MEDIA_PONDERADA_SETOR' } });
+
+    if (ipvsExiste) {
+      expect(vulnerabilidade?.indicadorDefinicaoId).toBe('IPVS_MEDIA_PONDERADA_SETOR');
+    } else {
+      expect(vulnerabilidade?.indicadorDefinicaoId).toBeNull();
+    }
+    // Os outros 3 componentes nunca apontam indicador (formula fixa).
+    for (const componente of riskConfig.componentes.filter((c) => c.componente !== 'VULNERABILIDADE')) {
+      expect(componente.indicadorDefinicaoId).toBeNull();
+    }
   });
 });
 
