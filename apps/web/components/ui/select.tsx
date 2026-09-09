@@ -10,8 +10,8 @@ export function Select({ className, children, ...props }: SelectProps) {
     <div className="relative inline-flex">
       <select
         className={cn(
-          'h-9 appearance-none rounded-md border border-border bg-surface py-1.5 pl-3 pr-8 text-sm text-foreground',
-          'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+          'h-9 appearance-none rounded-md border border-border bg-surface py-1.5 pl-3 pr-8 text-body text-foreground',
+          'transition-colors hover:border-border-strong disabled:opacity-50',
           className,
         )}
         {...props}

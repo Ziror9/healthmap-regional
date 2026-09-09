@@ -117,6 +117,38 @@ describe('GET /api/indicadores/municipios (Radar Municipal, Fase 5.7)', () => {
     }
   });
 
+  it('anosDisponiveis de INTERNACOES vem da MESMA fonte que produz os valores (FatoInternacaoResidenciaAnual)', async () => {
+    // Regressao: os anos vinham das competencias REAL do SIH enquanto os
+    // valores vinham de gold.FatoInternacaoResidenciaAnual (Fase 5.10). As
+    // duas fontes coincidem hoje, mas um ano com competencia ingerida e sem
+    // agregacao anual apareceria no seletor com os 645 municipios
+    // indisponiveis - oferecer um ano e afirmar que ha dado nele.
+    const linhas = await prisma.fatoInternacaoResidenciaAnual.findMany({
+      where: { origem: 'REAL' },
+      select: { ano: true },
+      distinct: ['ano'],
+      orderBy: { ano: 'asc' },
+    });
+    const anosNoFato = linhas.map((l) => l.ano);
+    expect(anosNoFato.length).toBeGreaterThan(0);
+
+    const { body } = await buscar('?indicador=INTERNACOES');
+    expect(body.meta.filtros.anosDisponiveis).toEqual(anosNoFato);
+    expect(body.meta.filtros.ano).toBe(anosNoFato[anosNoFato.length - 1]);
+  });
+
+  it('todo ano listado em anosDisponiveis de INTERNACOES realmente responde com dado (nenhum ano decorativo)', async () => {
+    const { body } = await buscar('?indicador=INTERNACOES');
+    for (const ano of body.meta.filtros.anosDisponiveis) {
+      const { status, body: doAno } = await buscar(`?indicador=INTERNACOES&ano=${ano}`);
+      expect(status).toBe(200);
+      expect(doAno.meta.filtros.ano).toBe(ano);
+      // Ao menos um municipio com valor - se nenhum tivesse, o ano nao
+      // deveria estar sendo oferecido no seletor.
+      expect(doAno.data.some((i) => i.disponivel)).toBe(true);
+    }
+  });
+
   it('indicador invalido e rejeitado com 400', async () => {
     const res = await fetch(`${baseUrl}/api/indicadores/municipios?indicador=NAO_EXISTE`);
     expect(res.status).toBe(400);

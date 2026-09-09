@@ -1,6 +1,7 @@
 'use client';
 
 import type { MunicipioResumoDTO, RegiaoSaudeDTO } from '@healthmap/contracts';
+import { Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { ProvenanceBadge } from '@/components/domain/provenance-badge';
@@ -9,6 +10,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
+import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApiRequestError, getRegioes, getTodosMunicipios } from '@/lib/api';
@@ -75,12 +77,14 @@ export default function MunicipiosPage() {
         actions={
           estado.tipo === 'pronto' ? (
             <div className="flex flex-wrap items-center gap-3">
-              <input
+              <Input
                 type="search"
                 value={busca}
                 onChange={(evento) => setBusca(evento.target.value)}
                 placeholder="Buscar município..."
-                className="h-9 rounded-md border border-border bg-surface px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="Buscar município"
+                icon={Search}
+                className="w-56"
               />
               <Select
                 value={regiaoFiltro}

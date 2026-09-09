@@ -14,7 +14,8 @@ import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ApiRequestError, getIndicadorMunicipios, getMunicipio } from '@/lib/api';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
-import { FAIXAS_COR, FAIXAS_LABEL, construirEscalaQuantil } from '@/lib/radar-municipal-color';
+import { EscalaLegenda, type FaixaLegenda } from '@/components/charts/map-legend';
+import { FAIXAS_COR_SWATCH, FAIXAS_LABEL, construirEscalaQuantil } from '@/lib/radar-municipal-color';
 import { cn } from '@/lib/utils';
 
 /**
@@ -176,6 +177,26 @@ function RadarMunicipalPronto({
     [itens],
   );
 
+  /**
+   * Quantos municipios em cada faixa de quantil - contagem dos valores que a
+   * API ja devolveu, usando o mesmo `faixaPara` que colore o mapa. Nenhum
+   * corte novo e calculado aqui.
+   */
+  const faixasLegenda = useMemo<FaixaLegenda[]>(() => {
+    const contagem = new Array<number>(FAIXAS_COR_SWATCH.length).fill(0);
+    for (const item of itens) {
+      if (!item.disponivel || item.valor === null) continue;
+      const faixa = escala.faixaPara(item.valor);
+      contagem[faixa] = (contagem[faixa] ?? 0) + 1;
+    }
+    return FAIXAS_COR_SWATCH.map((swatchClass, indice) => ({
+      chave: String(indice),
+      label: FAIXAS_LABEL[indice]!,
+      swatchClass,
+      quantidade: contagem[indice] ?? 0,
+    }));
+  }, [itens, escala]);
+
   const ranking = useMemo(() => {
     const disponiveis = itens.filter((i): i is RadarMunicipalItemDTO & { valor: number } => i.disponivel && i.valor !== null);
     const sinal = ordemDesc ? -1 : 1;
@@ -204,7 +225,6 @@ function RadarMunicipalPronto({
             </>
           )}
         </p>
-        <Legenda escala={escala} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -225,6 +245,16 @@ function RadarMunicipalPronto({
               const item = itemPorCodigo.get(m.codigoIbge7);
               if (item) onSelecionarMunicipio(item);
             }}
+            selecionadoId={
+              detalhe.tipo === 'pronto' ? detalhe.municipio.id : detalhe.tipo === 'carregando' ? detalhe.municipioId : null
+            }
+            legenda={
+              <EscalaLegenda
+                faixas={faixasLegenda}
+                semDado={{ quantidade: semDado, motivo: 'suprimido (n<5) ou sem registro no ano' }}
+                descricao={`unidade: ${meta.unidade}`}
+              />
+            }
           />
           <p className="text-xs leading-relaxed text-muted-foreground">
             Clique em um município para ver o detalhamento completo abaixo. Municípios em cinza não têm dado
@@ -265,19 +295,6 @@ function RadarMunicipalPronto({
       </div>
 
       <DetalheMunicipio detalhe={detalhe} indicador={meta.indicador} />
-    </div>
-  );
-}
-
-function Legenda({ escala }: { escala: ReturnType<typeof construirEscalaQuantil> }) {
-  if (escala.cortes.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-      <span>Baixo</span>
-      {FAIXAS_COR.map((cor, indice) => (
-        <span key={cor} title={FAIXAS_LABEL[indice]} className={cn('h-3 w-6 rounded-sm', cor)} />
-      ))}
-      <span>Alto</span>
     </div>
   );
 }

@@ -1,16 +1,20 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Sidebar } from '@/components/layout/sidebar';
+import { AppShell } from '@/components/layout/app-shell';
 import './globals.css';
 
 /**
  * Tipografia: pilha de fontes do sistema, definida em globals.css. Decisao
- * deliberada - o build nao deve depender de download externo em tempo de
- * compilacao.
+ * deliberada mantida no redesign - o build nao deve depender de download
+ * externo em tempo de compilacao. Trocar por uma face propria e alterar
+ * `--font-sans` (ver docs/design-system.md).
  *
- * Tema: claro por padrao (identidade enterprise definida na Fase 4, ver
- * docs/fase-4-relatorio.md). Nao ha alternancia de tema nesta fase - os
- * tokens de `.dark` nao sao aplicados.
+ * Tema: claro por padrao. Nao ha alternancia de tema - os tokens de `.dark`
+ * nao sao aplicados.
+ *
+ * A casca (navegacao lateral + barra superior) vive em AppShell, que e um
+ * Client Component porque guarda estado de interface (drawer, colapso,
+ * breadcrumb de detalhe). Este layout permanece Server Component.
  */
 export const metadata: Metadata = {
   title: 'HealthMap Regional',
@@ -21,10 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <div className="flex min-h-screen flex-col md:flex-row">
-          <Sidebar />
-          <main className="min-w-0 flex-1">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

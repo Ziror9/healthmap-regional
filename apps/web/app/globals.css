@@ -3,70 +3,134 @@
 @tailwind utilities;
 
 /**
- * Design tokens - HealthMap Regional (Fase 4).
+ * Design tokens - HealthMap Regional.
  *
- * Direcao: plataforma enterprise de inteligencia territorial. Fundo claro e
- * neutro (nunca "mar de azul"); azul institucional reservado a elementos de
- * identidade e acao primaria; cores semanticas (success/warning/danger/info)
- * reservadas a SIGNIFICADO, nunca decoracao. As escalas de risco e
- * proveniencia (badges) usam a paleta padrao do Tailwind diretamente nos
- * componentes de dominio (components/domain/*) - nao precisam de token
- * proprio aqui porque sao um numero fixo e pequeno de categorias, sempre
- * acompanhadas de texto/icone (nunca so cor).
+ * DIRECAO (E1 do redesign): instrumento de precisao, nao "dashboard bonito".
+ * Neutros grafite com vies quente, densidade controlada, e uma regra que
+ * organiza todo o resto:
+ *
+ *   COR E DADO. Neutro e estrutura.
+ *
+ * Consequencias diretas dessa regra:
+ *
+ * 1. `--brand` (vermelho institucional) e RESERVADO a identidade, acao
+ *    primaria, item ativo de navegacao e foco. NUNCA representa um valor.
+ *    Em particular, nunca e a cor de "Critico" - se fosse, o usuario nao
+ *    conseguiria distinguir gravidade de marca no mesmo mapa.
+ * 2. `--risk-1..5` e uma rampa SEQUENCIAL de luminancia decrescente
+ *    (palha -> vermelho profundo), exclusiva de dado. Substitui a escala
+ *    esmeralda->azul->ambar->laranja->vermelho anterior, em que o matiz
+ *    ciclava e a luminancia subia e descia: o mapa lia como confete e a
+ *    ordem entre dois municipios nao era perceptivel. A rampa nova varia
+ *    principalmente em LUMINANCIA, entao sobrevive a daltonismo
+ *    (protanopia/deuteranopia/tritanopia) - e a interface continua
+ *    acompanhando todo nivel de rotulo e numero ("Nivel 3/5"), nunca so cor.
+ * 3. `--unavailable` fica FORA da rampa: indisponivel/suprimido nao e um
+ *    balde da escala, e uma ausencia. Nunca deve parecer "valor baixo".
+ * 4. Cores semanticas (success/warning/danger/info) descrevem ESTADO
+ *    (confiabilidade, alerta, informacao), nao magnitude de risco - por isso
+ *    verde nao aparece na rampa: risco e uma grandeza ordenada, nao uma
+ *    dualidade bom/ruim.
+ *
+ * NENHUM limiar, corte, peso ou classificacao do RiskScore e afetado por
+ * este arquivo. Trocar a paleta e redesign visual puro: a mesma
+ * classificacao que a API devolve continua produzindo o mesmo rotulo e o
+ * mesmo nivel numerico - so muda a cor com que ele e desenhado.
  */
 @layer base {
   :root {
+    /* Tipografia. Pilha do sistema mantida deliberadamente (decisao da Fase
+       4): o build nao deve depender de download externo. Trocar por uma face
+       propria e uma linha aqui - ver docs/design-system.md. */
     --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
       Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
       monospace;
 
-    /* Estrutura */
-    --background: 210 24% 97%;
-    --foreground: 217 33% 13%;
+    /* ---- Estrutura: grafite de vies quente, nunca cinza puro ---- */
+    --background: 20 27% 98%;
+    --foreground: 18 20% 7%;
     --surface: 0 0% 100%;
-    --surface-foreground: 217 33% 13%;
-    --surface-muted: 214 24% 95%;
-    --border: 214 20% 87%;
-    --input: 214 20% 87%;
-    --ring: 214 72% 32%;
-    --radius: 0.5rem;
+    --surface-foreground: 18 20% 7%;
+    --surface-muted: 24 18% 95%;
+    --border: 20 14% 88%;
+    --border-strong: 20 12% 80%;
+    --input: 20 14% 88%;
+    --ring: 5 74% 40%;
+    --radius: 0.25rem;
 
     /* Compatibilidade com os componentes shadcn ja existentes (card = surface). */
     --card: 0 0% 100%;
-    --card-foreground: 217 33% 13%;
+    --card-foreground: 18 20% 7%;
 
     /* Texto */
-    --muted: 214 20% 95%;
-    --muted-foreground: 217 15% 43%;
+    --muted: 24 18% 95%;
+    --muted-foreground: 15 8% 39%;
 
-    /* Identidade institucional - azul profundo. Uso reservado a acao
-       primaria, navegacao ativa e elementos de marca - nunca preenchimento
-       de area grande. */
-    --primary: 214 72% 30%;
-    --primary-hover: 214 72% 24%;
+    /* ---- Identidade institucional ----
+       Vermelho de marca. Uso restrito: marca, acao primaria, item ativo,
+       anel de foco. Nunca preenchimento de area grande, nunca valor de dado. */
+    --primary: 5 74% 40%;
+    --primary-hover: 5 75% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 214 18% 93%;
-    --secondary-foreground: 217 33% 16%;
+    --secondary: 24 16% 93%;
+    --secondary-foreground: 18 20% 12%;
 
-    /* Acento teal - usado com parcimonia (destaques pontuais, nunca fundo). */
-    --accent: 189 68% 27%;
+    /* Acento neutro-escuro (grafite) para destaques que nao sao acao. */
+    --accent: 18 14% 20%;
     --accent-foreground: 0 0% 100%;
 
-    /* Semanticas - significado, nao decoracao. */
-    --success: 152 52% 30%;
+    /* ---- Semanticas: ESTADO, nunca magnitude de risco ---- */
+    --success: 158 57% 27%;
     --success-foreground: 0 0% 100%;
-    --warning: 36 90% 40%;
+    --warning: 35 81% 36%;
     --warning-foreground: 0 0% 100%;
-    --danger: 0 68% 45%;
+    --danger: 4 69% 35%;
     --danger-foreground: 0 0% 100%;
-    --info: 205 78% 38%;
+    --info: 205 64% 33%;
     --info-foreground: 0 0% 100%;
 
     /* Mantido pelo nome historico (usado pelo Badge/componentes shadcn). */
-    --destructive: 0 68% 45%;
+    --destructive: 4 69% 35%;
     --destructive-foreground: 0 0% 100%;
+
+    /* ---- Rampa sequencial de risco (1 = menor, 5 = maior) ----
+       `fill` pinta area (mapa, swatch de legenda); `ink` e texto/icone;
+       `bg`/`line` compoem chips pequenos, onde area cheia comprometeria a
+       leitura do texto. Luminancia de fill: 88% -> 75% -> 60% -> 47% -> 33%. */
+    --risk-1: 37 83% 88%;
+    --risk-1-ink: 37 55% 27%;
+    --risk-1-bg: 37 65% 96%;
+    --risk-1-line: 37 45% 85%;
+
+    --risk-2: 34 77% 75%;
+    --risk-2-ink: 34 60% 27%;
+    --risk-2-bg: 34 70% 95%;
+    --risk-2-line: 34 50% 82%;
+
+    --risk-3: 28 68% 60%;
+    --risk-3-ink: 28 65% 27%;
+    --risk-3-bg: 28 72% 94%;
+    --risk-3-line: 28 55% 78%;
+
+    --risk-4: 21 59% 47%;
+    --risk-4-ink: 21 68% 28%;
+    --risk-4-bg: 21 72% 93%;
+    --risk-4-line: 21 55% 74%;
+
+    --risk-5: 10 71% 33%;
+    --risk-5-ink: 10 70% 30%;
+    --risk-5-bg: 10 70% 93%;
+    --risk-5-line: 10 55% 72%;
+
+    /* Ausencia de dado - deliberadamente FORA da rampa. */
+    --unavailable: 17 7% 62%;
+    --unavailable-bg: 20 12% 94%;
+
+    /* Elevacao: dois niveis apenas. Cartao de conteudo usa borda, nao sombra. */
+    --shadow-sm: 0 1px 2px hsl(18 20% 7% / 0.06), 0 1px 1px hsl(18 20% 7% / 0.04);
+    --shadow-md: 0 8px 24px hsl(18 20% 7% / 0.1);
   }
 }
 
@@ -93,5 +157,43 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04';
+  }
+
+  /*
+   * Digitos alinhados em qualquer coluna de numero, sem precisar recorrer a
+   * fonte monoespacada so por causa do alinhamento (a mono continua sendo
+   * escolha deliberada onde o valor E um codigo - IBGE, indice).
+   */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * Foco visivel unico em toda a aplicacao. Antes cada componente definia (ou
+   * nao) o proprio; elementos clicaveis que nao eram <button> ficavam sem
+   * nenhum indicador de foco.
+   */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 1px);
+  }
+}
+
+@layer components {
+  /* Pula a navegacao - primeiro elemento focavel do documento. */
+  .skip-link {
+    @apply absolute left-4 top-4 z-[100] -translate-y-24 rounded-md bg-primary px-4 py-2 text-sm
+      font-medium text-primary-foreground transition-transform focus-visible:translate-y-0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

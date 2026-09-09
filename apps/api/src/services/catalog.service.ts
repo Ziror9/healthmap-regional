@@ -13,7 +13,7 @@ import {
   listRiskScoresDoMunicipio,
   getInternacoesAnuaisMunicipio,
   getObitosAnuaisMunicipio,
-  getCompetencias,
+  getAnosComInternacaoResidenciaAnual,
   getAnosComObitoResidenciaReal,
   getAnosComIndicadorMunicipal,
   listInternacoesAnualPorMunicipio,
@@ -186,8 +186,14 @@ export async function listarIndicadorMunicipios(filtro: RadarMunicipalFiltroQuer
   }
 
   if (indicador === 'INTERNACOES') {
-    const competencias = await getCompetencias(prisma, { apenasReal: true });
-    const anosDisponiveis = [...new Set(competencias.map((c) => c.ano))].sort((a, b) => a - b);
+    // Os anos vem da MESMA tabela que produz os valores
+    // (gold.FatoInternacaoResidenciaAnual, Fase 5.10) - antes vinham das
+    // competencias REAL do SIH, uma fonte vizinha mas diferente. As duas
+    // coincidem hoje, mas divergiriam num ano com competencias ingeridas e
+    // agregacao anual ausente: o seletor ofereceria um ano em que todos os
+    // 645 municipios apareceriam como indisponiveis. Oferecer um ano e
+    // afirmar que ha dado nele.
+    const anosDisponiveis = await getAnosComInternacaoResidenciaAnual(prisma);
     const ano = resolverAno(filtro.ano, anosDisponiveis);
     if (ano === null) return respostaVazia(indicador, anosDisponiveis, null);
 

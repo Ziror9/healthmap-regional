@@ -88,17 +88,22 @@
   inclui saude suplementar nem tratamento ambulatorial (SIA nao ingerido). A
   "taxa de atendimento fora do municipio" e um indicador DERIVADO calculado
   so sobre o volume visivel, nunca apresentado como dado observado.
-- **A RiskConfig REAL (`fase5.4-real`, id 4) tem scores DEMO misturados
-  (achado da Fase 5.8, NAO corrigido).** `calculate-risk-demo.ts` grava
-  scores DEMO para todas as RiskConfigs com componentes ativos, inclusive a
-  REAL: hoje a config 4 tem 7.740 scores REAL (2024) e 12 DEMO (2025). Como
-  as competencias DEMO sao posteriores, a resolucao default do Radar caia
-  numa competencia DEMO e a Visao Geral abria com 3 municipios sinteticos.
-  Contornado sem tocar no dado: quando o cliente pede `origem`
-  explicitamente, a competencia default passa a considerar a origem (ver
-  `docs/fase-5.8-relatorio.md` #10), e a Visao Geral pede REAL por padrao. A
-  poluicao em si continua no banco e exige decisao (ajustar o script DEMO
-  e/ou remover as linhas afeta dado existente).
+- **A RiskConfig REAL (`fase5.4-real`, id 4) teve scores DEMO misturados
+  entre as Fases 5.4 e 5.10 - RESOLVIDO na Fase 5.10.** `calculate-risk-demo.ts`
+  gravava scores DEMO em todas as RiskConfigs com componentes ativos,
+  inclusive a REAL (a config 4 chegou a ter 7.740 scores REAL de 2024 e 12
+  DEMO de 2025). Como as competencias DEMO eram posteriores, a resolucao
+  default do Radar caia numa competencia DEMO e a Visao Geral abria com 3
+  municipios sinteticos. Duas correcoes, nesta ordem: (a) Fase 5.8,
+  contorno de leitura - quando o cliente pede `origem` explicitamente, a
+  competencia default passa a considerar a origem (`docs/fase-5.8-relatorio.md`
+  #10), e a Visao Geral pede REAL por padrao; (b) Fase 5.10, correcao na
+  origem - `getRiskConfigsFase2` passou a recortar pelas configs do seed
+  (`autor startsWith 'seed-fase2'`) e as 372 linhas DEMO indevidas foram
+  removidas em transacao. **Nao ha mais poluicao no banco**: a config 4 tem
+  apenas os 7.740 scores REAL, e o DEMO legitimo (24 scores) vive so nas
+  configs do seed. O contorno de leitura da Fase 5.8 foi mantido - continua
+  correto e util quando o cliente pede uma origem especifica.
 - **O Radar de Risco deixou de ser exclusivamente DEMO nas Fases 5.3/5.4.**
   Fase 5.3 (CNES historico via pySUS) resolveu a sobreposicao temporal
   entre SIH e CNES REAL, ativando PRESSAO_HOSPITALAR_ESTIMADA REAL. Fase
@@ -225,16 +230,26 @@
 - Limiar adotado: `n < 5`. Aplicado no seed DEMO (e sera aplicado no ETL real
   na Fase 5) na granularidade minima do fato (`suprimido = true`, medidas
   numericas = `NULL`), reforcado por CHECK constraint no banco.
-- **A API da Fase 3 nao agrega fato bruto em nenhum endpoint** - so serve
-  `RiskScore`/`RiskComponenteValor`/`IndicadorMunicipal` ja materializados
-  pela Fase 2, onde a regra `NULL != 0` ja foi aplicada na agregacao
-  (`bool_or` no SQL, ver `packages/db/src/repositories/risk.ts`). A API so
-  repassa os campos nulos como estao - nunca os transforma em `0`
-  (verificado por teste automatizado em `apps/api/src/__tests__/risk.test.ts`).
-  A preocupacao original desta secao (soma ingenua via `SUM()` subestimando
-  um total incompleto) continua valendo para qualquer endpoint FUTURO que
-  venha a agregar fato bruto diretamente (ex.: um KPI de cabecalho na
-  Fase 4) - precisa ser resolvida antes desse endpoint existir.
+- **A API serve fato bruto agregado desde a Fase 5.7, sempre com a supressao
+  ja decidida na ingestao.** Ate a Fase 5.6 a API so servia
+  `RiskScore`/`RiskComponenteValor`/`IndicadorMunicipal` ja materializados.
+  A Fase 5.7 acrescentou `GET /api/indicadores/municipios` com os
+  indicadores `INTERNACOES` e `OBITOS_ONCOLOGICOS`, que sao fato bruto
+  agregado - e a Fase 5.8 acrescentou `GET /api/fluxo/*`. A preocupacao
+  original desta secao (soma ingenua via `SUM()` subestimando um total
+  incompleto) foi tratada, nao herdada: esses endpoints leem tabelas cujo
+  grao JA E o grao final (`gold.FatoObitoResidencia`, Fase 5.6;
+  `gold.FatoInternacaoResidenciaAnual`, Fase 5.10; `gold.FatoFluxoInternacao`,
+  Fase 5.8), onde a regra n<5 foi decidida UMA vez sobre o total, no ETL,
+  a partir do dado bruto - nunca somando celulas ja suprimidas. Onde a
+  agregacao ainda acontece na leitura (`bool_or` no SQL de
+  `packages/db/src/repositories/risk.ts`), a celula suprimida anula o total,
+  nunca vira uma soma parcial. A API so repassa os campos nulos como estao -
+  nunca os transforma em `0` (verificado por teste automatizado em
+  `apps/api/src/__tests__/risk.test.ts`,
+  `indicadores-municipios.test.ts` e `fluxo.test.ts`). A regra continua
+  valendo para qualquer endpoint FUTURO que venha a agregar fato bruto: a
+  supressao precisa ser decidida no grao publicado, nunca reconstruida.
 - O valor `5` nao esta embutido em codigo sem documentacao, mas tambem nao
   esta versionado em banco junto da metodologia do Radar (decisao explicita
   desta fase, para nao acoplar supressao de fatos brutos ao ciclo de vida do
@@ -248,10 +263,22 @@
 - Ate 5 anos de historico, **se** os dados estiverem disponiveis e consistentes.
   Caso a disponibilidade real seja menor, sera usado o maior periodo confiavel e
   a limitacao sera registrada aqui.
-- **Agregacao analitica por Regiao de Saude ainda nao implementada na API.**
-  A Visao Geral (Fase 4) agrupa municipios por Regiao de Saude apenas para
-  exibicao (join client-side entre `/api/municipios` e `/api/risk`) - nao
-  existe um endpoint que calcule indicador ou indice agregado por regiao.
+- **Agregacao por Regiao de Saude existe para o Radar (Fase 5.5), nao para
+  os demais indicadores.** `GET /api/risk/regioes`,
+  `/api/risk/regioes/:id` e `/api/risk/regioes/:id/components` servem
+  `RiskScoreRegional`/`RiskComponenteValorRegional` (17 DRS x 12
+  competencias), calculados de forma independente a partir do dado bruto -
+  nunca somando fatos municipais ja suprimidos. O que continua NAO
+  existindo: endpoint regional para os indicadores fora do Radar
+  (mortalidade oncologica, taxa de internacao, vulnerabilidade, fluxo
+  assistencial) - esses so existem no grao municipal. O card "Radar por
+  Regiao de Saude" da Visao Geral tambem continua sendo agrupamento
+  client-side dos RiskScore municipais (join entre `/api/municipios` e
+  `/api/risk`, ver `apps/web/app/page.tsx`), e NAO consome
+  `/api/risk/regioes` - as duas leituras coexistem e nao devem ser
+  confundidas: o endpoint regional e um calculo independente sobre o dado
+  bruto regional, o card e uma visualizacao dos indices municipais
+  arrumados por DRS.
 
 ## 7. Plataforma
 
@@ -303,14 +330,18 @@
 - **Mapa geografico implementado na Fase 5** (`apps/web/components/charts/map.tsx`),
   usando o GeoJSON real de SP (`apps/web/public/geo/sp-municipios.geojson`,
   fonte IBGE, ver `apps/web/public/geo/README.md`) renderizado em SVG puro
-  (sem Leaflet). **O mapa mostra os 645 municipios REAIS com sua geometria
-  oficial, mas o Radar de Risco continua calculado so sobre a base DEMO** -
-  a maior parte dos municipios do mapa aparece sem classificacao de risco
-  (cor neutra, tooltip "sem indice REAL calculado") - mesmo com SIH REAL
-  agora ingerido para um municipio-competencia poder ter internacoes REAL,
-  Pressao Hospitalar Estimada REAL continua indisponivel (secao 10), entao
-  nenhum municipio REAL tem classificacao ainda. Estado honesto, nao um
-  bug. Clique navega para o detalhe do municipio.
+  (sem Leaflet). O mapa mostra os 645 municipios REAIS com sua geometria
+  oficial. **Desde as Fases 5.3/5.4 o Radar e calculado sobre a base REAL**:
+  todos os 645 municipios recebem classificacao em todas as competencias com
+  Radar (7.740 RiskScore REAL), graças a renormalizacao de pesos - o indice
+  e composto com os componentes disponiveis mesmo onde PRESSAO_HOSPITALAR_
+  ESTIMADA falta (ela so existe em 4 das 12 competencias, secao 10). A cor
+  neutra/"sem indice calculado" continua aparecendo quando os filtros atuais
+  (competencia/origem/riskConfig) nao tem score para aquele municipio -
+  estado honesto, nao um bug. Clique navega para o detalhe do municipio.
+  A Fase 5.7 generalizou o mesmo componente (props opcionais `corPorCodigo`/
+  `tooltipPorCodigo`/`onClickMunicipio`) para o Radar Municipal, sem alterar
+  o comportamento anterior quando elas sao omitidas.
 - **Filtros da UI limitados aos que a API suporta.** `/api/risk` (Fase 3) so
   aceita `competenciaId`/`riskConfigId`/`origem` - por isso a UI so oferece
   filtro global de competencia e origem (sincronizados com a URL, via

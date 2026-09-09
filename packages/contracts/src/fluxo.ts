@@ -22,6 +22,17 @@ export const fluxoItemSchema = z.object({
   suprimido: z.boolean(),
   /** Atendimento na propria cidade - nao e deslocamento. */
   mesmoMunicipio: z.boolean(),
+  /**
+   * Proveniencia por item (CLAUDE.md #2), mesmo padrao de RiskScoreItemDTO e
+   * RadarMunicipalItemDTO. Vem da coluna `origem` da propria linha do fato -
+   * nunca de uma constante no codigo.
+   *
+   * Nao ha campo `natureza`: fatos brutos do gold nao a persistem (e sempre
+   * OBSERVADO por construcao, ver o comentario do enum Natureza no
+   * schema.prisma). O unico numero DERIVADO desta area e
+   * `taxaFluxoExternoVisivel`, rotulado como tal no resumo e na UI.
+   */
+  origem: z.nativeEnum(Origem),
 });
 export type FluxoItemDTO = z.infer<typeof fluxoItemSchema>;
 
@@ -56,6 +67,8 @@ export const poloAtendimentoSchema = z.object({
   municipio: fluxoMunicipioRefSchema,
   internacoesRecebidasDeFora: z.number().int(),
   municipiosDeOrigem: z.number().int(),
+  /** Proveniencia por item - ver fluxoItemSchema.origem. */
+  origem: z.nativeEnum(Origem),
 });
 export type PoloAtendimentoDTO = z.infer<typeof poloAtendimentoSchema>;
 
@@ -66,9 +79,17 @@ export const fluxoFiltroQuerySchema = z.object({
 });
 export type FluxoFiltroQuery = z.infer<typeof fluxoFiltroQuerySchema>;
 
+/**
+ * Como os filtros do fluxo foram resolvidos. `ano` continua nullable (pode
+ * nao haver nenhum ano carregado para a origem pedida), mas `origem` NAO:
+ * a API sempre aplica uma origem concreta na consulta (REAL por padrao) e
+ * precisa declarar qual foi. Devolver `null` aqui, como acontecia ate a
+ * higienizacao pos-5.10, dizia "nenhuma origem" enquanto o repositorio
+ * filtrava REAL por baixo dos panos.
+ */
 export const fluxoFiltroResolvidoSchema = z.object({
   ano: z.number().int().nullable(),
   anosDisponiveis: z.array(z.number().int()),
-  origem: z.nativeEnum(Origem).nullable(),
+  origem: z.nativeEnum(Origem),
 });
 export type FluxoFiltroResolvidoDTO = z.infer<typeof fluxoFiltroResolvidoSchema>;

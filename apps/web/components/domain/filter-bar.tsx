@@ -38,9 +38,12 @@ export function FilterBar() {
     };
   }, []);
 
+  // Sem `flex-wrap`: o PageHeader ja da rolagem horizontal a area de acoes no
+  // mobile, e quebrar linha aqui anulava isso - os dois filtros empilhavam e o
+  // cabecalho tomava a primeira tela inteira antes de qualquer dado.
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="flex items-center gap-2">
+      <label className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground">
         Competência
         <Select
           value={filtros.competenciaId ?? ''}
@@ -55,7 +58,7 @@ export function FilterBar() {
         </Select>
       </label>
 
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+      <label className="flex shrink-0 items-center gap-1.5 text-caption text-muted-foreground">
         Origem
         <Select value={filtros.origem ?? ''} onChange={(evento) => setFiltro('origem', evento.target.value || undefined)}>
           <option value="">Todas</option>
@@ -68,7 +71,7 @@ export function FilterBar() {
       </label>
 
       {temFiltrosAtivos && (
-        <Button variant="ghost" size="sm" onClick={limparFiltros} className="text-muted-foreground">
+        <Button variant="ghost" size="sm" onClick={limparFiltros} className="shrink-0 text-muted-foreground">
           <X className="h-3.5 w-3.5" aria-hidden />
           Limpar filtros
         </Button>

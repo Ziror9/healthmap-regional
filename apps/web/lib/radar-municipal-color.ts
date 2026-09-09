@@ -13,13 +13,34 @@ import type { RadarMunicipalItemDTO } from '@healthmap/contracts';
  * classificarPorQuintil (packages/risk/src/score.ts) para o RiskScore.
  */
 
-export const FAIXAS_COR = ['fill-emerald-300', 'fill-sky-300', 'fill-amber-300', 'fill-orange-300', 'fill-red-300'] as const;
+/**
+ * REDESIGN (E1): a escala era esmeralda -> azul -> ambar -> laranja ->
+ * vermelho. O matiz ciclava e a luminancia nao era monotonica, entao o mapa
+ * nao comunicava ORDEM - dois municipios de baldes vizinhos podiam parecer
+ * mais distantes que dois de baldes opostos. Agora usa a mesma rampa
+ * sequencial do Radar (`--risk-1..5`, ver app/globals.css): luminancia
+ * decrescente, legivel sob daltonismo, e coerente entre mapa, legenda e chip
+ * de classificacao.
+ *
+ * Os baldes em si (quantis sobre os valores disponiveis) NAO mudaram - so a
+ * cor com que cada um e desenhado.
+ */
+export const FAIXAS_COR = ['fill-risk-1', 'fill-risk-2', 'fill-risk-3', 'fill-risk-4', 'fill-risk-5'] as const;
+/**
+ * As mesmas 5 faixas para elementos HTML (legenda). Precisa existir separada
+ * porque `fill-*` pinta SVG e `bg-*` pinta bloco - usar a lista do mapa na
+ * legenda deixa os swatches transparentes.
+ */
+export const FAIXAS_COR_SWATCH = ['bg-risk-1', 'bg-risk-2', 'bg-risk-3', 'bg-risk-4', 'bg-risk-5'] as const;
 export const FAIXAS_LABEL = ['Muito baixo', 'Baixo', 'Médio', 'Alto', 'Muito alto'] as const;
-export const COR_INDISPONIVEL = 'fill-muted';
+/** Fora da rampa de proposito: ausencia de dado nunca deve parecer "valor baixo". */
+export const COR_INDISPONIVEL = 'fill-unavailable-bg';
 
 export interface EscalaQuantil {
   /** Cor (classe Tailwind) para um valor - `null`/indisponivel sempre cai em COR_INDISPONIVEL, nunca num balde. */
   corPara(valor: number | null, disponivel: boolean): string;
+  /** Indice da faixa (0-4) de um valor - usado pela legenda para contar municipios por faixa. */
+  faixaPara(valor: number): number;
   /** Pontos de corte usados (para a legenda) - vazio se nao houver dado suficiente para 5 baldes distintos. */
   cortes: number[];
 }
@@ -32,7 +53,7 @@ export function construirEscalaQuantil(itens: RadarMunicipalItemDTO[]): EscalaQu
     .sort((a, b) => a - b);
 
   if (valores.length === 0) {
-    return { corPara: () => COR_INDISPONIVEL, cortes: [] };
+    return { corPara: () => COR_INDISPONIVEL, faixaPara: () => 0, cortes: [] };
   }
 
   const cortes = [0.2, 0.4, 0.6, 0.8].map((p) => {
@@ -49,6 +70,7 @@ export function construirEscalaQuantil(itens: RadarMunicipalItemDTO[]): EscalaQu
 
   return {
     cortes,
+    faixaPara: balde,
     corPara: (valor, disponivel) => {
       if (!disponivel || valor === null) return COR_INDISPONIVEL;
       return FAIXAS_COR[balde(valor)]!;

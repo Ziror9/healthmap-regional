@@ -15,6 +15,7 @@ interface FluxoItem {
   internacoes: number | null;
   suprimido: boolean;
   mesmoMunicipio: boolean;
+  origem: 'REAL' | 'DEMO';
 }
 
 interface FluxoMunicipioEnvelope {
@@ -36,7 +37,12 @@ interface FluxoMunicipioEnvelope {
 }
 
 interface PolosEnvelope {
-  data: { municipio: { id: number; nome: string; codigoIbge7: string }; internacoesRecebidasDeFora: number; municipiosDeOrigem: number }[];
+  data: {
+    municipio: { id: number; nome: string; codigoIbge7: string };
+    internacoesRecebidasDeFora: number;
+    municipiosDeOrigem: number;
+    origem: 'REAL' | 'DEMO';
+  }[];
   meta: { filtros: { ano: number | null; anosDisponiveis: number[]; origem: string | null } };
 }
 
@@ -165,5 +171,74 @@ describe('Fase 5.8 - integridade do fato de fluxo', () => {
       where: { origem: 'REAL', suprimido: true, internacoes: { not: null } },
     });
     expect(suprimidoComValor).toBe(0);
+  });
+});
+
+/**
+ * Proveniencia (CLAUDE.md #2): a origem efetivamente aplicada na consulta
+ * tem de ser a mesma declarada no `meta`. Antes desta correcao o repositorio
+ * filtrava REAL por default e o `meta` devolvia `origem: null` - um numero
+ * REAL entregue sem dizer que era REAL.
+ */
+describe('Fluxo - proveniencia declarada (correcao pos-Fase 5.10)', () => {
+  it('sem parametro de origem: a API declara REAL no meta e todo item carrega origem REAL', async () => {
+    const parVisivel = await prisma.fatoFluxoInternacao.findFirst({
+      where: { origem: 'REAL', suprimido: false },
+      orderBy: { internacoes: 'desc' },
+    });
+
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${parVisivel!.municipioResidenciaId}`);
+    const body = await readJson<FluxoMunicipioEnvelope>(res);
+
+    expect(body.meta.filtros.origem).toBe('REAL');
+    expect(body.data!.saidas.length).toBeGreaterThan(0);
+    for (const item of [...body.data!.saidas, ...body.data!.entradas]) {
+      expect(item.origem).toBe('REAL');
+    }
+  });
+
+  it('polos tambem declaram REAL por padrao, no meta e por item', async () => {
+    const res = await fetch(`${baseUrl}/api/fluxo/polos?limite=5`);
+    const body = await readJson<PolosEnvelope>(res);
+
+    expect(body.meta.filtros.origem).toBe('REAL');
+    expect(body.data.length).toBeGreaterThan(0);
+    for (const polo of body.data) {
+      expect(polo.origem).toBe('REAL');
+    }
+  });
+
+  it('origem=DEMO e respeitada: o meta declara DEMO e nenhum item REAL vaza na resposta', async () => {
+    const totalDemo = await prisma.fatoFluxoInternacao.count({ where: { origem: 'DEMO' } });
+
+    const resPolos = await fetch(`${baseUrl}/api/fluxo/polos?origem=DEMO`);
+    expect(resPolos.status).toBe(200);
+    const polos = await readJson<PolosEnvelope>(resPolos);
+    expect(polos.meta.filtros.origem).toBe('DEMO');
+    // A base atual nao tem fluxo DEMO: a resposta correta e vazia e
+    // declarada como DEMO - nunca cair de volta em REAL para "ter o que
+    // mostrar". Se um dia houver fluxo DEMO, todo item tem de ser DEMO.
+    if (totalDemo === 0) expect(polos.data).toHaveLength(0);
+    for (const polo of polos.data) {
+      expect(polo.origem).toBe('DEMO');
+    }
+
+    // Os anos oferecidos sao os DAQUELA origem - nunca os da outra.
+    const anosDemoNoBanco = await prisma.fatoFluxoInternacao.findMany({
+      where: { origem: 'DEMO' },
+      select: { ano: true },
+      distinct: ['ano'],
+      orderBy: { ano: 'asc' },
+    });
+    expect(polos.meta.filtros.anosDisponiveis).toEqual(anosDemoNoBanco.map((l) => l.ano));
+  });
+
+  it('a origem declarada no meta e sempre uma origem concreta, nunca null', async () => {
+    const paraChecar = ['', '?origem=REAL', '?origem=DEMO'];
+    for (const query of paraChecar) {
+      const res = await fetch(`${baseUrl}/api/fluxo/polos${query}`);
+      const body = await readJson<PolosEnvelope>(res);
+      expect(['REAL', 'DEMO']).toContain(body.meta.filtros.origem);
+    }
   });
 });

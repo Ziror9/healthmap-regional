@@ -20,6 +20,7 @@ import { LoadingState } from '@/components/states/loading-state';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { FluxoPanel } from '@/components/domain/fluxo-panel';
+import { useDetalheBreadcrumb } from '@/components/layout/app-shell';
 import { ApiRequestError, getFluxoMunicipio, getIndicadores, getMunicipio, getRiskComponentes } from '@/lib/api';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
 import { getComponenteLabel, getMotivoIndisponibilidade, inferOrigemMunicipio } from '@/lib/risk-display';
@@ -149,6 +150,10 @@ export default function MunicipioDetalhePage() {
       cancelado = true;
     };
   }, [municipioId]);
+
+  // O breadcrumb da Topbar recebe o nome do municipio: sem isso o ultimo nivel
+  // da trilha seria o id da rota, que nao significa nada para quem le.
+  useDetalheBreadcrumb(estado.tipo === 'pronto' ? estado.municipio.nome : null);
 
   const serieTemporal = useMemo<PontoSerie[]>(() => {
     if (estado.tipo !== 'pronto' || !riscoSelecionado) return [];

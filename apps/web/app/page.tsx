@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ClassificacaoRisco,
   MunicipioResumoDTO,
   PoloAtendimentoDTO,
   RadarMunicipalItemDTO,
@@ -176,6 +177,17 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
 
   const maisCriticos = useMemo(() => [...risco].sort((a, b) => b.indice - a.indice).slice(0, 6), [risco]);
 
+  /**
+   * Quantos municipios em cada faixa da escala - CONTAGEM dos itens que a API
+   * ja devolveu classificados, para a legenda do mapa. Nenhum limiar ou
+   * classificacao acontece aqui (mesma natureza dos KPIs de apresentacao).
+   */
+  const contagemPorClassificacao = useMemo(() => {
+    const zerado: Record<ClassificacaoRisco, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0, MUITO_BAIXO: 0 };
+    for (const item of risco) zerado[item.classificacao] += 1;
+    return zerado;
+  }, [risco]);
+
   const municipiosParaMapa = useMemo<MunicipioNoMapa[]>(() => {
     const riscoPorMunicipioId = new Map(risco.map((item) => [item.municipio.id, item]));
     // So municipios REAL: os DEMO nao tem geometria no GeoJSON oficial e
@@ -300,11 +312,20 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
 
         <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
           <div className="min-w-0 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-foreground">Índice do Radar por município</h3>
-              <RiskScaleLegend />
-            </div>
-            <MapaSP municipios={municipiosParaMapa} buildHref={hrefMunicipio} />
+            <h3 className="text-title-sm font-semibold text-foreground">Índice do Radar por município</h3>
+            <MapaSP
+              municipios={municipiosParaMapa}
+              buildHref={hrefMunicipio}
+              legenda={
+                <RiskScaleLegend
+                  contagemPorClassificacao={contagemPorClassificacao}
+                  semDado={{
+                    quantidade: municipiosParaMapa.filter((m) => m.classificacao === null).length,
+                    motivo: 'sem índice nesta competência',
+                  }}
+                />
+              }
+            />
             <p className="text-xs text-muted-foreground">
               Clique em um município para investigar.{' '}
               <Link href="/radar-municipal" className="text-primary hover:underline">

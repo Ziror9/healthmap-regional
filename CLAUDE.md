@@ -52,8 +52,9 @@ geografia completa (645 municipios + 17 DRS, IBGE/SES-SP), capacidade de
 leitos (snapshot via API DEMAS + **historico por competencia via CNES
 grupo LT/pySUS**, Fase 5.3), internacoes oncologicas via SIH/SUS (pySUS,
 container Linux dedicado `etl/docker/Dockerfile.sih` - contorna
-pyreaddbc/Windows - 4 competencias de 2024: 02/06/08/12, unicas
-disponiveis no catalogo espelhado), populacao estimada anual (IBGE tabela
+pyreaddbc/Windows - **as 12 competencias de 2024** (`COMPETENCIAS_POC`; o
+catalogo espelhado pelo pySUS servia so 02/06/08/12 ate a Fase 5.6, quando
+passou a servir o ano completo - ver `docs/fase-5.6-relatorio.md` #9), populacao estimada anual (IBGE tabela
 6579, Fase 5.2) e vulnerabilidade social (IPVS/SEADE, Fase 5.4 - unica
 fonte em grao de setor censitario encontrada, sem licenca declarada;
 agregada por municipio via media ponderada por populacao, aprovada
@@ -61,13 +62,22 @@ explicitamente pelo usuario, natureza `ESTIMATIVA`).
 
 **O Radar de Risco (RiskComponenteValor/RiskScore) ja produz REAL**, nao
 so DEMO, em dois graos: **municipal** (`PRESSAO_HOSPITALAR_ESTIMADA` +
-`VULNERABILIDADE`, config `fase5.4-real`, 2.580 RiskScore, 645 municipios x
-4 competencias) e **regional** (Fase 5.5 - `RiskScoreRegional`, 17 DRS x 4
-competencias, **100% de cobertura** - supressao n<5 decidida de forma
-independente no grao regional, direto do dado bruto do SIH/CNES, nunca
-somando fatos municipais ja suprimidos). `TENDENCIA`/`SEVERIDADE` ficam
-estruturalmente prontas mas sempre indisponiveis (lacuna metodologica, nao
-inventada).
+`VULNERABILIDADE`, config `fase5.4-real`, **7.740 RiskScore, 645 municipios
+x 12 competencias**) e **regional** (Fase 5.5 - `RiskScoreRegional`, **204
+scores, 17 DRS x 12 competencias**, **100% de cobertura** - supressao n<5
+decidida de forma independente no grao regional, direto do dado bruto do
+SIH/CNES, nunca somando fatos municipais ja suprimidos).
+`TENDENCIA`/`SEVERIDADE` ficam estruturalmente prontas mas sempre
+indisponiveis (lacuna metodologica, nao inventada).
+
+**Atencao a distincao de cobertura**: o SIH cobre as 12 competencias de
+2024, mas o **CNES historico** (`etl/ingest_cnes_historico.py`) so ingeriu
+4 - por isso `PRESSAO_HOSPITALAR_ESTIMADA` existe em apenas 4 das 12
+competencias. Todos os 645 municipios recebem indice em todas as 12 graças
+a renormalizacao de pesos (o indice e composto com os componentes
+disponiveis). A limitacao de "4 competencias" e do CNES/Pressao Hospitalar,
+**nao** do SIH. Alterar isso muda a cobertura de um componente do Radar e
+exige autorizacao explicita.
 
 **Mortalidade oncologica REAL entrou na Fase 5.6** (SIM/DATASUS, grupo DO) -
 `TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB`, indicador `OBSERVADO` -

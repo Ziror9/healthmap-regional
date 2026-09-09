@@ -9,6 +9,14 @@
  *
  * Mesma separacao de riskQuery.ts/radarQuery.ts: repositories/risk.ts serve
  * ao motor de calculo; este arquivo serve a API.
+ *
+ * PROVENIENCIA: `origem` e OBRIGATORIA em todas as funcoes daqui. Ate a
+ * higienizacao pos-Fase 5.10 elas tinham default `?? 'REAL'`, e o service
+ * podia devolver `meta.filtros.origem = null` enquanto a consulta filtrava
+ * REAL - um numero sem proveniencia declarada (CLAUDE.md #2). Quem chama
+ * precisa ter resolvido a origem antes, e e essa mesma origem resolvida que
+ * vai para o `meta` da resposta. Cada item devolvido carrega ainda a
+ * `origem` da propria linha do fato, nunca uma constante.
  */
 import type { PrismaClient } from '@prisma/client';
 import type { OrigemValor } from './riskQuery.js';
@@ -25,10 +33,12 @@ export interface FluxoItem {
   suprimido: boolean;
   /** true quando origem e destino sao o mesmo municipio (atendimento na propria cidade). */
   mesmoMunicipio: boolean;
+  /** Proveniencia da linha do fato (coluna `origem` de FatoFluxoInternacao), nunca uma constante. */
+  origem: OrigemValor;
 }
 
-/** Anos com pelo menos 1 par de fluxo carregado - o seletor de ano nunca inventa um ano. */
-export async function getAnosComFluxo(prisma: PrismaClient, origem: OrigemValor = 'REAL'): Promise<number[]> {
+/** Anos com pelo menos 1 par de fluxo carregado NA ORIGEM pedida - o seletor de ano nunca inventa um ano nem mistura origens. */
+export async function getAnosComFluxo(prisma: PrismaClient, origem: OrigemValor): Promise<number[]> {
   const rows = await prisma.fatoFluxoInternacao.findMany({
     where: { origem },
     select: { ano: true },
@@ -43,13 +53,13 @@ const SELECT_MUNICIPIO = { select: { id: true, nome: true, codigoIbge7: true } }
 /** Para onde vao os pacientes que MORAM neste municipio (destinos), maior volume primeiro. */
 export async function listFluxoPorOrigem(
   prisma: PrismaClient,
-  filtros: { municipioId: number; ano: number; origem?: OrigemValor },
+  filtros: { municipioId: number; ano: number; origem: OrigemValor },
 ): Promise<FluxoItem[]> {
   const rows = await prisma.fatoFluxoInternacao.findMany({
     where: {
       municipioResidenciaId: filtros.municipioId,
       ano: filtros.ano,
-      origem: filtros.origem ?? 'REAL',
+      origem: filtros.origem,
     },
     include: { municipioInternacao: SELECT_MUNICIPIO },
     orderBy: [{ internacoes: { sort: 'desc', nulls: 'last' } }],
@@ -60,19 +70,20 @@ export async function listFluxoPorOrigem(
     internacoes: r.suprimido ? null : r.internacoes,
     suprimido: r.suprimido,
     mesmoMunicipio: r.municipioInternacaoId === filtros.municipioId,
+    origem: r.origem,
   }));
 }
 
 /** De onde vem os pacientes ATENDIDOS neste municipio (origens), maior volume primeiro. */
 export async function listFluxoPorDestino(
   prisma: PrismaClient,
-  filtros: { municipioId: number; ano: number; origem?: OrigemValor },
+  filtros: { municipioId: number; ano: number; origem: OrigemValor },
 ): Promise<FluxoItem[]> {
   const rows = await prisma.fatoFluxoInternacao.findMany({
     where: {
       municipioInternacaoId: filtros.municipioId,
       ano: filtros.ano,
-      origem: filtros.origem ?? 'REAL',
+      origem: filtros.origem,
     },
     include: { municipioResidencia: SELECT_MUNICIPIO },
     orderBy: [{ internacoes: { sort: 'desc', nulls: 'last' } }],
@@ -83,6 +94,7 @@ export async function listFluxoPorDestino(
     internacoes: r.suprimido ? null : r.internacoes,
     suprimido: r.suprimido,
     mesmoMunicipio: r.municipioResidenciaId === filtros.municipioId,
+    origem: r.origem,
   }));
 }
 
@@ -114,7 +126,7 @@ export interface ResumoFluxoMunicipio {
  */
 export async function getResumoFluxoMunicipio(
   prisma: PrismaClient,
-  filtros: { municipioId: number; ano: number; origem?: OrigemValor },
+  filtros: { municipioId: number; ano: number; origem: OrigemValor },
 ): Promise<ResumoFluxoMunicipio> {
   const destinos = await listFluxoPorOrigem(prisma, filtros);
 
@@ -146,6 +158,8 @@ export async function getResumoFluxoMunicipio(
 
 export interface PoloAtendimento {
   municipio: FluxoMunicipioRef;
+  /** Proveniencia das linhas somadas neste polo - ver FluxoItem.origem. */
+  origem: OrigemValor;
   /** Internacoes recebidas de residentes de OUTROS municipios (exclui o proprio). */
   internacoesRecebidasDeFora: number;
   /** Quantos municipios de origem distintos mandam pacientes para ca (pares visiveis). */
@@ -160,12 +174,12 @@ export interface PoloAtendimento {
  */
 export async function listPolosAtendimento(
   prisma: PrismaClient,
-  filtros: { ano: number; limite?: number; origem?: OrigemValor },
+  filtros: { ano: number; limite?: number; origem: OrigemValor },
 ): Promise<PoloAtendimento[]> {
   const rows = await prisma.fatoFluxoInternacao.findMany({
     where: {
       ano: filtros.ano,
-      origem: filtros.origem ?? 'REAL',
+      origem: filtros.origem,
       suprimido: false,
       NOT: { municipioResidenciaId: { equals: prisma.fatoFluxoInternacao.fields.municipioInternacaoId } },
     },
@@ -177,6 +191,7 @@ export async function listPolosAtendimento(
     if (row.internacoes === null) continue;
     const atual = porDestino.get(row.municipioInternacaoId) ?? {
       municipio: row.municipioInternacao,
+      origem: row.origem,
       internacoesRecebidasDeFora: 0,
       municipiosDeOrigem: 0,
     };
