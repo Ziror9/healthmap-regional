@@ -86,3 +86,35 @@ export function RankBar({
   }
   return <div className={classe}>{conteudo}</div>;
 }
+
+/**
+ * Barra proporcional compacta para dentro de celula de tabela - mesma ideia
+ * da RankBar, sem a linha inteira.
+ *
+ * REPRESENTA um valor que ja existe; nao calcula nada. A largura e o valor
+ * dividido pelo maximo da escala (o indice do Radar e 0-1 por construcao,
+ * entao `maximo` e 1), e o numero continua visivel ao lado - a barra e
+ * redundancia visual, nunca a unica forma de ler o valor.
+ */
+export function MiniBarra({
+  valor,
+  maximo = 1,
+  rotulo,
+  className,
+}: {
+  valor: number;
+  maximo?: number;
+  /** Texto ja formatado do valor. */
+  rotulo: string;
+  className?: string;
+}) {
+  const proporcao = maximo > 0 ? Math.min(1, Math.max(0, valor / maximo)) : 0;
+  return (
+    <span className={cn('flex items-center gap-2', className)}>
+      <span className="tabular w-9 shrink-0 text-body text-foreground">{rotulo}</span>
+      <span className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-surface-muted" aria-hidden>
+        <span className="block h-full rounded-full bg-foreground/35" style={{ width: `${proporcao * 100}%` }} />
+      </span>
+    </span>
+  );
+}

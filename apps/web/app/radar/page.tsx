@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { ConfidenceBadge } from '@/components/domain/confidence-badge';
 import { FilterBar } from '@/components/domain/filter-bar';
+import { FiltrosResponsivos } from '@/components/domain/filtros-responsivos';
 import { FreshnessIndicator } from '@/components/domain/freshness-indicator';
 import { ProvenanceBadge } from '@/components/domain/provenance-badge';
+import { MiniBarra } from '@/components/domain/rank-bar';
 import { RiskBadge } from '@/components/domain/risk-badge';
 import { RiskScaleLegend } from '@/components/domain/risk-scale-legend';
 import { PageContent } from '@/components/layout/page-content';
@@ -15,6 +17,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
+import { Pagination } from '@/components/ui/pagination';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ApiRequestError, getTodosRisk } from '@/lib/api';
 import { formatCompetenciaLabel, formatIndice } from '@/lib/format';
@@ -45,6 +48,7 @@ function RadarContent() {
   const [classificacoesAtivas, setClassificacoesAtivas] = useState<Set<ClassificacaoRisco>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>('indice');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [pagina, setPagina] = useState(1);
 
   useEffect(() => {
     let cancelado = false;
@@ -69,7 +73,10 @@ function RadarContent() {
     };
   }, [filtros.competenciaId, filtros.riskConfigId, filtros.origem]);
 
+  // Filtrar ou reordenar muda QUAIS linhas existem: manter a pagina 15 depois
+  // disso mostraria uma pagina vazia ou um recorte sem relacao com a acao.
   function alternarClassificacao(classificacao: ClassificacaoRisco): void {
+    setPagina(1);
     setClassificacoesAtivas((atual) => {
       const novo = new Set(atual);
       if (novo.has(classificacao)) novo.delete(classificacao);
@@ -79,6 +86,7 @@ function RadarContent() {
   }
 
   function alternarOrdenacao(chave: SortKey): void {
+    setPagina(1);
     if (sortKey === chave) {
       setSortDir((atual) => (atual === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -87,15 +95,24 @@ function RadarContent() {
     }
   }
 
+  const quantidadeFiltrosAtivos =
+    (filtros.competenciaId !== undefined ? 1 : 0) +
+    (filtros.origem !== undefined ? 1 : 0) +
+    (classificacoesAtivas.size > 0 ? 1 : 0);
+
   return (
     <>
       <PageHeader
         title="Radar de Risco"
         description="Ranking de municípios pelo índice do Radar de Risco."
-        actions={<FilterBar />}
+        actions={
+          <FiltrosResponsivos quantidadeAtiva={quantidadeFiltrosAtivos}>
+            <FilterBar />
+          </FiltrosResponsivos>
+        }
       />
       <PageContent className="space-y-4">
-        {estado.tipo === 'carregando' && <LoadingState label="Carregando ranking..." />}
+        {estado.tipo === 'carregando' && <LoadingState label="Carregando ranking..." variant="table" />}
         {estado.tipo === 'erro' && <ErrorState description={estado.mensagem} />}
         {estado.tipo === 'pronto' && (
           <RadarPronto
@@ -106,6 +123,8 @@ function RadarContent() {
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={alternarOrdenacao}
+            pagina={pagina}
+            onMudarPagina={setPagina}
           />
         )}
       </PageContent>
@@ -140,6 +159,8 @@ function SortHeader({
   );
 }
 
+const POR_PAGINA = 50;
+
 function RadarPronto({
   itens,
   meta,
@@ -148,6 +169,8 @@ function RadarPronto({
   sortKey,
   sortDir,
   onSort,
+  pagina,
+  onMudarPagina,
 }: {
   itens: RiskScoreItemDTO[];
   meta: RiskFiltroResolvidoDTO;
@@ -156,6 +179,8 @@ function RadarPronto({
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (chave: SortKey) => void;
+  pagina: number;
+  onMudarPagina: (pagina: number) => void;
 }) {
   const itensExibidos = useMemo(() => {
     const base = classificacoesAtivas.size === 0 ? itens : itens.filter((item) => classificacoesAtivas.has(item.classificacao));
@@ -169,6 +194,20 @@ function RadarPronto({
       return (CONFIABILIDADE_ORDEM[a.confiabilidade] - CONFIABILIDADE_ORDEM[b.confiabilidade]) * sinal;
     });
   }, [itens, classificacoesAtivas, sortKey, sortDir]);
+
+  /** Quantos municipios em cada faixa - contagem dos itens que a API ja
+   *  devolveu classificados, exibida no proprio chip de filtro. Nenhum limiar
+   *  ou classificacao acontece aqui. */
+  const contagemPorClassificacao = useMemo(() => {
+    const zerado: Record<ClassificacaoRisco, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0, BAIXO: 0, MUITO_BAIXO: 0 };
+    for (const item of itens) zerado[item.classificacao] += 1;
+    return zerado;
+  }, [itens]);
+
+  const totalPaginas = Math.max(1, Math.ceil(itensExibidos.length / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicio = (paginaAtual - 1) * POR_PAGINA;
+  const itensDaPagina = itensExibidos.slice(inicio, inicio + POR_PAGINA);
 
   const primeiroItem = itens[0];
 
@@ -189,11 +228,10 @@ function RadarPronto({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-xs font-medium text-muted-foreground">Classificação:</span>
+          <span className="mr-1 text-label uppercase text-muted-foreground">Classificação</span>
           {CLASSIFICACAO_ORDEM.map((classificacao) => {
             const display = getClassificacaoDisplay(classificacao);
             const ativo = classificacoesAtivas.has(classificacao);
-            const Icon = display.icon;
             return (
               <button
                 key={classificacao}
@@ -201,17 +239,23 @@ function RadarPronto({
                 onClick={() => onToggleClassificacao(classificacao)}
                 aria-pressed={ativo}
                 className={cn(
-                  'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-caption font-medium transition-colors',
                   ativo
                     ? cn(display.textClass, display.bgClass, display.borderClass)
                     : 'border-border text-muted-foreground hover:bg-surface-muted',
                 )}
               >
-                <Icon className="h-3 w-3" aria-hidden />
+                <span className={cn('h-2 w-2 shrink-0 rounded-sm', display.swatchClass)} aria-hidden />
                 {display.label}
+                <span className="tabular opacity-70">{contagemPorClassificacao[classificacao]}</span>
               </button>
             );
           })}
+          {classificacoesAtivas.size > 0 && (
+            <span className="tabular text-caption text-muted-foreground">
+              {itensExibidos.length} de {itens.length}
+            </span>
+          )}
         </div>
         <RiskScaleLegend className="hidden lg:flex" />
       </div>
@@ -241,9 +285,9 @@ function RadarPronto({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {itensExibidos.map((item, indice) => (
+            {itensDaPagina.map((item, indice) => (
               <TableRow key={item.municipio.id}>
-                <TableCell className="text-xs text-muted-foreground">{indice + 1}</TableCell>
+                <TableCell className="tabular text-caption text-muted-foreground">{inicio + indice + 1}</TableCell>
                 <TableCell>
                   <Link
                     href={buildMunicipioHref(item.municipio.id, {
@@ -256,7 +300,12 @@ function RadarPronto({
                     {item.municipio.nome}
                   </Link>
                 </TableCell>
-                <TableCell className="font-mono">{formatIndice(item.indice)}</TableCell>
+                <TableCell>
+                  {/* A barra REPRESENTA o indice que a API ja devolveu (escala
+                      0-1 por construcao); o numero continua ao lado. Nao ha
+                      calculo de risco aqui. */}
+                  <MiniBarra valor={item.indice} rotulo={formatIndice(item.indice)} />
+                </TableCell>
                 <TableCell>
                   <RiskBadge classificacao={item.classificacao} />
                 </TableCell>
@@ -267,6 +316,16 @@ function RadarPronto({
             ))}
           </TableBody>
         </Table>
+      )}
+
+      {itensExibidos.length > 0 && (
+        <Pagination
+          pagina={paginaAtual}
+          totalPaginas={totalPaginas}
+          totalItens={itensExibidos.length}
+          intervalo={[inicio + 1, inicio + itensDaPagina.length]}
+          onMudarPagina={onMudarPagina}
+        />
       )}
     </div>
   );

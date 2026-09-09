@@ -1,7 +1,7 @@
 'use client';
 
 import type { MunicipioDetalheDTO, RadarMunicipalFiltroResolvidoDTO, RadarMunicipalIndicador, RadarMunicipalItemDTO } from '@healthmap/contracts';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp } from 'lucide-react';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { MapaSP, type MunicipioNoMapa } from '@/components/charts/map';
 import { ProvenanceBadge } from '@/components/domain/provenance-badge';
@@ -13,8 +13,12 @@ import { LoadingState } from '@/components/states/loading-state';
 import { Card } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ApiRequestError, getIndicadorMunicipios, getMunicipio } from '@/lib/api';
+import { useRadarMunicipalFiltros } from '@/lib/use-radar-municipal-filters';
 import { formatCompetenciaLabel, formatNumero } from '@/lib/format';
 import { EscalaLegenda, type FaixaLegenda } from '@/components/charts/map-legend';
+import { FiltrosResponsivos } from '@/components/domain/filtros-responsivos';
+import { RankBar } from '@/components/domain/rank-bar';
+import { SuppressedValue } from '@/components/states/suppressed-value';
 import { FAIXAS_COR_SWATCH, FAIXAS_LABEL, construirEscalaQuantil } from '@/lib/radar-municipal-color';
 import { cn } from '@/lib/utils';
 
@@ -63,8 +67,8 @@ type EstadoDetalhe =
   | { tipo: 'pronto'; municipio: MunicipioDetalheDTO };
 
 function RadarMunicipalContent() {
-  const [indicador, setIndicador] = useState<RadarMunicipalIndicador>('INTERNACOES');
-  const [ano, setAno] = useState<number | undefined>(undefined);
+  const { filtros, setIndicador, setAno, setMunicipio, quantidadeAtiva } = useRadarMunicipalFiltros();
+  const { indicador, ano, municipioId } = filtros;
   const [estado, setEstado] = useState<Estado>({ tipo: 'carregando' });
   const [ordemDesc, setOrdemDesc] = useState(true);
   const [detalhe, setDetalhe] = useState<EstadoDetalhe>({ tipo: 'nenhum' });
@@ -79,6 +83,13 @@ function RadarMunicipalContent() {
       })
       .catch((erro: unknown) => {
         if (cancelado) return;
+        // Link antigo ou ano digitado a mao: em vez de deixar a tela num
+        // estado de erro, descarta o ano invalido da URL e deixa a API
+        // resolver o mais recente disponivel para este indicador.
+        if (erro instanceof ApiRequestError && erro.code === 'ANO_NAO_DISPONIVEL' && ano !== undefined) {
+          setAno(undefined);
+          return;
+        }
         const mensagem = erro instanceof ApiRequestError ? erro.message : 'Falha desconhecida ao consultar a API.';
         setEstado({ tipo: 'erro', mensagem });
       });
@@ -86,16 +97,45 @@ function RadarMunicipalContent() {
     return () => {
       cancelado = true;
     };
-  }, [indicador, ano]);
+  }, [indicador, ano, setAno]);
 
-  function selecionarMunicipio(item: RadarMunicipalItemDTO) {
-    setDetalhe({ tipo: 'carregando', municipioId: item.municipio.id, nome: item.municipio.nome });
-    getMunicipio(item.municipio.id, estado.tipo === 'pronto' && estado.meta.ano !== null ? { ano: estado.meta.ano } : {})
-      .then((resposta) => setDetalhe({ tipo: 'pronto', municipio: resposta.data }))
+  /**
+   * O municipio selecionado vem da URL: abrir o link direto reproduz a
+   * selecao, e o botao voltar do navegador funciona.
+   *
+   * CORRECAO DE COMPORTAMENTO (E4): o detalhe deixou de ser buscado com o ano
+   * do filtro. `GET /api/municipios/:id?ano=N` filtra os indicadores por
+   * aquele ano, e o IPVS e de 2022 (ano do Censo) - com `ano=2024` ele
+   * sumia da resposta e o painel afirmava "sem registro" para um valor que
+   * EXISTE. Era falso desde a Fase 5.7 e so ficou visivel agora, porque o
+   * painel passou a nomear o tipo de ausencia em vez de mostrar "-".
+   * O painel ja escolhe o valor mais recente de cada metrica (comportamento
+   * documentado na Fase 5.7 #10), entao filtrar por ano aqui so podia
+   * esconder dado.
+   */
+  useEffect(() => {
+    if (municipioId === undefined) {
+      setDetalhe({ tipo: 'nenhum' });
+      return;
+    }
+    let cancelado = false;
+    setDetalhe({ tipo: 'carregando', municipioId, nome: '' });
+    getMunicipio(municipioId)
+      .then((resposta) => {
+        if (!cancelado) setDetalhe({ tipo: 'pronto', municipio: resposta.data });
+      })
       .catch((erro: unknown) => {
+        if (cancelado) return;
         const mensagem = erro instanceof ApiRequestError ? erro.message : 'Falha ao carregar o detalhe do município.';
         setDetalhe({ tipo: 'erro', mensagem });
       });
+    return () => {
+      cancelado = true;
+    };
+  }, [municipioId]);
+
+  function selecionarMunicipio(item: RadarMunicipalItemDTO) {
+    setMunicipio(item.municipio.id);
   }
 
   return (
@@ -104,13 +144,10 @@ function RadarMunicipalContent() {
         title="Radar Municipal"
         description="Mapa territorial interativo dos municípios de São Paulo, por indicador."
         actions={
-          <div className="flex flex-wrap items-center gap-2">
+          <FiltrosResponsivos quantidadeAtiva={quantidadeAtiva}>
             <Select
               value={indicador}
-              onChange={(e) => {
-                setIndicador(e.target.value as RadarMunicipalIndicador);
-                setAno(undefined);
-              }}
+              onChange={(e) => setIndicador(e.target.value as RadarMunicipalIndicador)}
               aria-label="Indicador"
             >
               {INDICADORES.map((i) => (
@@ -132,11 +169,11 @@ function RadarMunicipalContent() {
                 ))}
               </Select>
             )}
-          </div>
+          </FiltrosResponsivos>
         }
       />
       <PageContent className="space-y-4">
-        {estado.tipo === 'carregando' && <LoadingState label="Carregando Radar Municipal..." />}
+        {estado.tipo === 'carregando' && <LoadingState label="Carregando Radar Municipal..." variant="map" />}
         {estado.tipo === 'erro' && <ErrorState description={estado.mensagem} />}
         {estado.tipo === 'pronto' && (
           <RadarMunicipalPronto
@@ -145,6 +182,7 @@ function RadarMunicipalContent() {
             ordemDesc={ordemDesc}
             onToggleOrdem={() => setOrdemDesc((atual) => !atual)}
             onSelecionarMunicipio={selecionarMunicipio}
+            onLimparSelecao={() => setMunicipio(undefined)}
             detalhe={detalhe}
           />
         )}
@@ -159,6 +197,7 @@ function RadarMunicipalPronto({
   ordemDesc,
   onToggleOrdem,
   onSelecionarMunicipio,
+  onLimparSelecao,
   detalhe,
 }: {
   itens: RadarMunicipalItemDTO[];
@@ -166,6 +205,7 @@ function RadarMunicipalPronto({
   ordemDesc: boolean;
   onToggleOrdem: () => void;
   onSelecionarMunicipio: (item: RadarMunicipalItemDTO) => void;
+  onLimparSelecao: () => void;
   detalhe: EstadoDetalhe;
 }) {
   const escala = useMemo(() => construirEscalaQuantil(itens), [itens]);
@@ -227,7 +267,7 @@ function RadarMunicipalPronto({
         </p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.7fr_1fr]">
         <div className="min-w-0 space-y-2">
           <MapaSP
             municipios={municipiosParaMapa}
@@ -256,45 +296,57 @@ function RadarMunicipalPronto({
               />
             }
           />
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Clique em um município para ver o detalhamento completo abaixo. Municípios em cinza não têm dado
-            disponível nesta seleção (suprimido por privacidade ou sem registro no ano).
+          <p className="text-caption leading-relaxed text-muted-foreground">
+            Clique em um município para abrir o detalhamento ao lado. Municípios em cinza não têm dado disponível
+            nesta seleção (suprimido por privacidade ou sem registro no ano).
           </p>
         </div>
 
-        <div className="min-w-0 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">Ranking — {rankingLabelIndicador(meta.indicador)}</h2>
-            <button
-              type="button"
-              onClick={onToggleOrdem}
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-surface-muted"
-            >
-              {ordemDesc ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUp className="h-3 w-3" aria-hidden />}
-              {ordemDesc ? 'Maior → menor' : 'Menor → maior'}
-            </button>
-          </div>
-          <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
-            {ranking.map((item, indice) => (
-              <button
-                key={item.municipio.id}
-                type="button"
-                onClick={() => onSelecionarMunicipio(item)}
-                className="flex w-full items-center justify-between gap-3 rounded-lg border border-border bg-surface p-2.5 text-left transition-colors hover:border-primary/40 hover:bg-surface-muted"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">{indice + 1}.</span>
-                  <span className="truncate text-sm font-medium text-foreground">{item.municipio.nome}</span>
-                </span>
-                <span className="shrink-0 font-mono text-sm text-foreground">{formatNumero(item.valor, casas)}</span>
-              </button>
-            ))}
-          </div>
-          {semDado > 0 && <p className="text-xs text-muted-foreground">{semDado} município(s) sem dado disponível (não exibidos no ranking).</p>}
+        {/* Coluna lateral: ranking OU detalhe do municipio selecionado. Antes o
+            detalhe abria ABAIXO do ranking, fora da tela - clicar num municipio
+            dava a impressao de que nada acontecia. Trocar a coluna mantem o mapa
+            do lado do detalhe, que e a comparacao que interessa. */}
+        <div className="min-w-0">
+          {detalhe.tipo === 'nenhum' ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-title-sm font-semibold text-foreground">
+                  Ranking — {rankingLabelIndicador(meta.indicador)}
+                </h2>
+                <button
+                  type="button"
+                  onClick={onToggleOrdem}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-caption text-muted-foreground hover:bg-surface-muted"
+                >
+                  {ordemDesc ? <ArrowDown className="h-3 w-3" aria-hidden /> : <ArrowUp className="h-3 w-3" aria-hidden />}
+                  {ordemDesc ? 'Maior → menor' : 'Menor → maior'}
+                </button>
+              </div>
+              <div className="max-h-[460px] space-y-0.5 overflow-y-auto pr-1">
+                {ranking.map((item, indice) => (
+                  <RankBar
+                    key={item.municipio.id}
+                    posicao={indice + 1}
+                    nome={item.municipio.nome}
+                    valor={item.valor}
+                    valorFormatado={formatNumero(item.valor, casas)}
+                    maximo={ranking[0]?.valor ?? 0}
+                    onClick={() => onSelecionarMunicipio(item)}
+                  />
+                ))}
+              </div>
+              {semDado > 0 && (
+                <p className="text-caption text-muted-foreground">
+                  <span className="tabular">{semDado}</span> município(s) sem dado disponível — não entram no
+                  ranking, e não são zero.
+                </p>
+              )}
+            </div>
+          ) : (
+            <DetalheMunicipio detalhe={detalhe} indicador={meta.indicador} onVoltar={onLimparSelecao} />
+          )}
         </div>
       </div>
-
-      <DetalheMunicipio detalhe={detalhe} indicador={meta.indicador} />
     </div>
   );
 }
@@ -308,20 +360,39 @@ const CAMPOS_DETALHE: { indicador: RadarMunicipalIndicador; label: string }[] = 
   { indicador: 'VULNERABILIDADE', label: 'Vulnerabilidade (IPVS)' },
 ];
 
-function DetalheMunicipio({ detalhe, indicador }: { detalhe: EstadoDetalhe; indicador: RadarMunicipalIndicador }) {
+function DetalheMunicipio({
+  detalhe,
+  indicador,
+  onVoltar,
+}: {
+  detalhe: EstadoDetalhe;
+  indicador: RadarMunicipalIndicador;
+  onVoltar: () => void;
+}) {
   if (detalhe.tipo === 'nenhum') return null;
 
   return (
-    <Card className="p-5">
-      {detalhe.tipo === 'carregando' && <LoadingState label={`Carregando ${detalhe.nome}...`} />}
+    <Card className="p-4">
+      <button
+        type="button"
+        onClick={onVoltar}
+        className="mb-3 inline-flex items-center gap-1.5 rounded-md text-caption text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+        Voltar ao ranking
+      </button>
+
+      {detalhe.tipo === 'carregando' && <LoadingState label="Carregando município..." variant="panel" />}
       {detalhe.tipo === 'erro' && <ErrorState description={detalhe.mensagem} />}
       {detalhe.tipo === 'pronto' && (
         <div className="space-y-3">
           <div>
-            <h3 className="text-base font-semibold text-foreground">{detalhe.municipio.nome}</h3>
-            <p className="text-xs text-muted-foreground">UF: {detalhe.municipio.uf}</p>
+            <h3 className="text-title font-semibold text-foreground">{detalhe.municipio.nome}</h3>
+            <p className="text-caption text-muted-foreground">
+              {detalhe.municipio.regiaoSaude.nome} · {detalhe.municipio.uf} · IBGE {detalhe.municipio.codigoIbge7}
+            </p>
           </div>
-          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
             {CAMPOS_DETALHE.map((campo) => (
               <LinhaDetalhe key={campo.indicador} municipio={detalhe.municipio} campo={campo} destacado={campo.indicador === indicador} />
             ))}
@@ -365,9 +436,27 @@ function LinhaDetalhe({
   }
 
   return (
-    <div className={cn('rounded-md border p-2.5', destacado ? 'border-primary/40 bg-primary/5' : 'border-border')}>
-      <dt className="text-xs text-muted-foreground">{campo.label}</dt>
-      <dd className="mt-0.5 font-mono text-sm font-medium text-foreground">{valorTexto ?? 'Não disponível'}</dd>
+    <div
+      className={cn(
+        'flex items-baseline justify-between gap-3 rounded-md border p-2.5',
+        destacado ? 'border-primary/40 bg-primary/5' : 'border-border',
+      )}
+    >
+      <dt className="text-caption text-muted-foreground">{campo.label}</dt>
+      <dd className="shrink-0">
+        {valorTexto === null ? (
+          /* Ausencia nunca vira "0" nem tracinho: a API nao informa POR QUE
+             falta neste recorte (supressao ou ausencia de registro), entao o
+             rotulo honesto e "sem registro" com a explicacao no tooltip -
+             nunca afirmar supressao sem saber. */
+          <SuppressedValue
+            tipo="sem-dado"
+            motivo={`Sem valor disponível de ${campo.label.toLowerCase()} para este município no período consultado. Pode ser supressão por privacidade (n<5) ou ausência de registro — o detalhe não distingue os dois.`}
+          />
+        ) : (
+          <span className="tabular text-body font-medium text-foreground">{valorTexto}</span>
+        )}
+      </dd>
     </div>
   );
 }

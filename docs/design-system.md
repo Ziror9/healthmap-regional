@@ -272,6 +272,8 @@ comparação caractere a caractere importa.
 | `Table` | Revisado E1 | **Cabeçalho fixo** (`sticky`) com `maxHeight`; scroll horizontal próprio |
 | `Skeleton` | Revisado E1 | Bloco pulsante; a animação é desligada por `prefers-reduced-motion` |
 | `Tooltip` | Existente | Só-CSS (`group-hover`/`group-focus-within`), sem JS e sem dependência |
+| `Sheet` | **Novo E4** | Painel deslizante (bottom/right). Esc fecha, clique no fundo fecha, foco vai ao painel e volta ao gatilho, rolagem do documento travada. **Sem armadilha de foco** — tabular pode sair do painel |
+| `Pagination` | **Novo E4** | Paginação client-side sobre lista já carregada — não dispara requisição |
 
 ### 7.2 Estados (`components/states/`)
 
@@ -293,6 +295,14 @@ comparação caractere a caractere importa.
 | `PageContent` | Revisado E1 | Largura máxima 1180px |
 | `SectionHeader` | Revisado E1 | Um nível abaixo do PageHeader |
 
+Estado na URL: `lib/use-risk-filters.ts` (competência/riskConfig/origem, Fase 3) e
+`lib/use-radar-municipal-filters.ts` (indicador/ano/município, E4). Regra: só
+entram parâmetros que a API já aceita ou que representam seleção de interface;
+nenhuma alteração de API foi feita para sustentar a URL. URL inválida não
+quebra a tela — valor desconhecido cai no padrão, e um ano inexistente é
+descartado após o 404 da API, em vez de deixar a página em erro por causa de
+um link velho.
+
 Registro de navegação: `lib/navigation.ts` — fonte única consumida pela Sidebar
 (lista) e pela Topbar (breadcrumb). Duplicar os rótulos faria as duas
 divergirem na primeira renomeação.
@@ -311,6 +321,8 @@ divergirem na primeira renomeação.
 | `FreshnessIndicator` | Existente | Competência + timestamp real de cálculo |
 | `UnavailableNote` | Existente | Indisponibilidade genérica — em migração para `SuppressedValue` |
 | `FilterBar` | Revisado E1 | Linha única com rolagem no mobile |
+| `FiltrosResponsivos` | **Novo E4** | Controles inline no desktop, em `Sheet` no mobile, com contagem de filtros ativos. Os controles são renderizados nas duas superfícies, mas escrevem no mesmo estado — não há estado duplicado |
+| `MiniBarra` | **Novo E4** | Barra proporcional dentro de célula de tabela. Representa um valor existente; o número continua ao lado |
 | `FluxoPanel`, `RiskScorePanel`, `StatusMetodologicoBadge` | Existentes | Não tocados pelo redesign até aqui |
 
 ---
@@ -428,7 +440,6 @@ Porque ainda não existe:
 - página de Fluxo Assistencial e mapa de arcos (E5 / Fase 5.11);
 - página de Regiões de Saúde e interface do Radar Regional (E6);
 - ficha de município em abas (E6);
-- drawer de filtros e paginação de tabela (E4);
 - tema escuro — os tokens de `.dark` não são aplicados;
 - fonte dedicada (seção 5);
 - testes automatizados de frontend — `apps/web` não tem framework de testes; a
