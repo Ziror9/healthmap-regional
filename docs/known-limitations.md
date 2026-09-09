@@ -342,6 +342,27 @@
   A Fase 5.7 generalizou o mesmo componente (props opcionais `corPorCodigo`/
   `tooltipPorCodigo`/`onClickMunicipio`) para o Radar Municipal, sem alterar
   o comportamento anterior quando elas sao omitidas.
+- **Defeito de projecao do mapa CORRIGIDO na etapa E2 do redesign.** Ate
+  entao o mapa desenhava Sao Paulo **49,8% mais alto** do que o estado e: a
+  correcao de longitude por cosseno era aplicada e, na linha seguinte,
+  anulada por uma escala independente por eixo que encaixava o resultado numa
+  caixa quadrada (`sx = 640/dx`, `sy = 640/dy`, com `dx/dy = 1,498`). Agora ha
+  uma unica escala para os dois eixos e a altura do viewBox e derivada da
+  geometria - razao desenhada 1,498, identica a do territorio. O mapa tambem
+  ganhou zoom/pan (pelo viewBox, sem tocar nos 645 caminhos), navegacao por
+  teclado com anuncio em `aria-live`, tooltip preso a viewport e legenda com
+  contagem por faixa. Ver `docs/design-system.md` #8.
+- **Escala de cor do risco trocada na etapa E1 do redesign.** A escala
+  anterior (esmeralda -> azul -> ambar -> laranja -> vermelho) ciclava o matiz
+  sem ordenacao de luminancia: o mapa lia como confete e a ordem entre dois
+  municipios nao era perceptivel. Foi substituida por uma rampa sequencial de
+  luminancia decrescente, legivel sob daltonismo. **Nenhum limiar,
+  classificacao ou valor foi alterado** - so a cor com que sao desenhados.
+- **Quatro estados de ausencia de dado agora tem componente proprio**
+  (`components/states/suppressed-value.tsx`): zero real, suprimido (n<5), sem
+  registro e sem metodologia. A aplicacao nas telas e **progressiva** (etapas
+  E4-E7); ate la o `UnavailableNote` generico continua em uso no detalhe de
+  municipio e nos componentes do Radar.
 - **Filtros da UI limitados aos que a API suporta.** `/api/risk` (Fase 3) so
   aceita `competenciaId`/`riskConfigId`/`origem` - por isso a UI so oferece
   filtro global de competencia e origem (sincronizados com a URL, via

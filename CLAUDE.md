@@ -32,8 +32,8 @@ SVG proprio, Radar de Risco, **Radar Municipal** - mapa interativo por
 indicador (internacoes, taxa de internacao, obitos oncologicos, mortalidade
 oncologica, RiskScore, vulnerabilidade), com ranking e painel de
 detalhamento -, Municipios, detalhe de municipio, Metodologia, Sobre),
-identidade visual propria (tema claro, azul institucional, escala de risco
-nunca so cor). A navegacao e a Visao Geral seguem tres niveis explicitos
+identidade visual propria (tema claro, **vermelho institucional**, escala de
+risco **sequencial** e nunca so cor). A navegacao e a Visao Geral seguem tres niveis explicitos
 (Situacao -> Analise -> Investigacao, Fase 5.8).
 
 **Fluxo assistencial REAL entrou na Fase 5.8** (`gold.FatoFluxoInternacao`,
@@ -93,6 +93,17 @@ nenhuma RiskConfig alterada - confirmado por teste automatizado.
 
 Historico de decisoes, bugs corrigidos e numeros exatos de cada fase: ver
 os relatorios abaixo.
+
+**Redesign de interface em andamento (etapas E1-E3 concluidas).** Trabalho
+de UX/UI sobre a aplicacao existente, sem alterar metodologia, dados ou
+arquitetura. Ja entregue: Design System com tokens proprios (E1), correcao da
+projecao do mapa e zoom/pan/teclado (E2), e a Visao Geral reorganizada com
+ponto focal e proveniencia nos indicadores (E3). Regra que organiza a paleta:
+**cor e dado, neutro e estrutura** - o vermelho institucional e reservado a
+marca, acao, item ativo e foco, e NUNCA representa um valor; a escala de risco
+usa uma rampa sequencial de luminancia decrescente, exclusiva de dado.
+Especificacao completa do que existe: [`docs/design-system.md`](docs/design-system.md).
+Nenhum threshold, classificacao, peso ou valor foi alterado pelo redesign.
 
 Ver
 [`docs/fase-1-relatorio.md`](docs/fase-1-relatorio.md),
