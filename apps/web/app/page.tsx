@@ -14,13 +14,15 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { MapaSP, type MunicipioNoMapa } from '@/components/charts/map';
 import { FilterBar } from '@/components/domain/filter-bar';
 import { FreshnessIndicator } from '@/components/domain/freshness-indicator';
-import { KpiCard } from '@/components/domain/kpi-card';
+import { KpiCard, PainelIndicadores } from '@/components/domain/kpi-card';
 import { ProvenanceBadge } from '@/components/domain/provenance-badge';
-import { RegionHeatGrid, type RegiaoGrupo } from '@/components/domain/region-heat-grid';
+import { RankBar } from '@/components/domain/rank-bar';
+import { RegionDistribuicao, type RegiaoGrupo } from '@/components/domain/region-distribution';
 import { RiskBadge } from '@/components/domain/risk-badge';
 import { RiskScaleLegend } from '@/components/domain/risk-scale-legend';
 import { PageContent } from '@/components/layout/page-content';
 import { PageHeader } from '@/components/layout/page-header';
+import { SectionHeader } from '@/components/layout/section-header';
 import { EmptyState } from '@/components/states/empty-state';
 import { ErrorState } from '@/components/states/error-state';
 import { LoadingState } from '@/components/states/loading-state';
@@ -117,7 +119,12 @@ function DashboardContent() {
         actions={<FilterBar />}
       />
       <PageContent>
-        {estado.tipo === 'carregando' && <LoadingState label="Carregando panorama..." />}
+        {estado.tipo === 'carregando' && (
+          <div className="space-y-8">
+            <LoadingState label="Carregando panorama..." variant="cards" />
+            <LoadingState label="Carregando mapa e rankings..." variant="map" />
+          </div>
+        )}
         {estado.tipo === 'erro' && <ErrorState description={estado.mensagem} />}
         {estado.tipo === 'pronto' && <DashboardPronto estado={estado} />}
       </PageContent>
@@ -228,43 +235,39 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
     });
 
   return (
-    <div className="space-y-10">
-      {/* ---------------- NIVEL 1 - situacao geral ---------------- */}
-      <section className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              {realCount} municípios de São Paulo monitorados
-            </p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Radar de {competenciaLabel} · {risco.length} municípios com índice calculado
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-            <span className="inline-flex items-center text-xs text-muted-foreground">
+    <div className="space-y-8">
+      {/* ================= SITUACAO — o que esta acontecendo ================= */}
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-body text-foreground">
+            <span className="tabular font-semibold">{realCount}</span> municípios de São Paulo ·{' '}
+            <span className="tabular font-semibold">{risco.length}</span> com índice em {competenciaLabel}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span className="inline-flex items-center text-label uppercase text-muted-foreground">
               Origem <ProvenanceBadge origem={meta.origem ?? primeiroItem.origem} className="mx-1.5 align-middle" />
             </span>
             <FreshnessIndicator competenciaLabel={competenciaLabel} calculadoEm={primeiroItem.calculadoEm} />
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <PainelIndicadores>
           <KpiCard
             label="Municípios em risco alto"
             value={formatNumero(kpis.criticosOuAltos)}
             icon={AlertTriangle}
-            hint={`Crítico ou Alto · de ${risco.length} com índice em ${competenciaLabel}`}
+            hint={`Crítico ou Alto, de ${risco.length} com índice`}
+            fonte="Radar de Risco"
+            periodo={competenciaLabel}
           />
           <KpiCard
             label="Maior mortalidade oncológica"
             value={kpis.maiorMortalidade ? formatNumero(kpis.maiorMortalidade.valor, 1) : '—'}
             unit={kpis.maiorMortalidade ? '/10 mil' : undefined}
             icon={HeartPulse}
-            hint={
-              kpis.maiorMortalidade
-                ? `${kpis.maiorMortalidade.municipio.nome}${mortalidadeAno ? ` · ${mortalidadeAno}` : ''}`
-                : 'Sem indicador de mortalidade disponível'
-            }
+            hint={kpis.maiorMortalidade ? kpis.maiorMortalidade.municipio.nome : 'Indicador indisponível'}
+            fonte="SIM/DATASUS"
+            periodo={mortalidadeAno ? String(mortalidadeAno) : '—'}
           />
           <KpiCard
             label="Maior polo de atendimento"
@@ -272,9 +275,11 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
             icon={Network}
             hint={
               kpis.maiorPolo
-                ? `${formatNumero(kpis.maiorPolo.internacoesRecebidasDeFora)} internações de ${kpis.maiorPolo.municipiosDeOrigem} municípios${polosAno ? ` · ${polosAno}` : ''}`
+                ? `${formatNumero(kpis.maiorPolo.internacoesRecebidasDeFora)} internações de ${kpis.maiorPolo.municipiosDeOrigem} municípios`
                 : 'Fluxo assistencial não carregado'
             }
+            fonte="SIH/SUS"
+            periodo={polosAno ? String(polosAno) : '—'}
           />
           <KpiCard
             label="Cobertura da mortalidade"
@@ -289,29 +294,35 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
                 ? `${kpis.mortalidadeCobertura} de ${kpis.mortalidadeTotal} municípios · resto suprimido (n<5)`
                 : 'Indicador indisponível'
             }
+            fonte="SIM/DATASUS"
+            periodo={mortalidadeAno ? String(mortalidadeAno) : '—'}
           />
-        </div>
+        </PainelIndicadores>
 
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Tendência e Severidade continuam estruturalmente indisponíveis (metodologia não definida), então o índice do
-          Radar é composto apenas pelos componentes disponíveis, com os pesos renormalizados — ver{' '}
+        <p className="text-caption leading-relaxed text-muted-foreground">
+          Tendência e Severidade continuam estruturalmente indisponíveis (metodologia não definida): o índice do Radar é
+          composto apenas pelos componentes disponíveis, com os pesos renormalizados — ver{' '}
           <Link href="/metodologia" className="text-primary hover:underline">
             Metodologia
           </Link>
-          . KPIs são contagem/máximo de apresentação sobre listas já calculadas pela API; nenhum índice é recalculado
-          aqui.
+          . Os indicadores acima são contagem e máximo de apresentação sobre listas já calculadas pela API; nenhum índice
+          é recalculado aqui.
         </p>
       </section>
 
-      {/* ---------------- NIVEL 2 - analise territorial ---------------- */}
+      {/* ================= ANALISE — onde esta acontecendo ================= */}
       <section className="space-y-4">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Onde está acontecendo</h2>
-          <p className="text-xs text-muted-foreground">Distribuição territorial e concentração do atendimento</p>
-        </div>
+        <SectionHeader
+          title="Onde está acontecendo"
+          description="Distribuição territorial do risco e concentração do atendimento"
+        />
 
-        <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-          <div className="min-w-0 space-y-3">
+        {/* O mapa e o elemento dominante da pagina: ocupa a maior parte da
+            largura, e as listas ficam ao lado como leitura de apoio. Antes as
+            tres coisas dividiam espaco em pe de igualdade e nenhuma era o
+            ponto focal. */}
+        <div className="grid gap-5 xl:grid-cols-[1.7fr_1fr]">
+          <div className="min-w-0 space-y-2">
             <h3 className="text-title-sm font-semibold text-foreground">Índice do Radar por município</h3>
             <MapaSP
               municipios={municipiosParaMapa}
@@ -326,79 +337,79 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
                 />
               }
             />
-            <p className="text-xs text-muted-foreground">
-              Clique em um município para investigar.{' '}
+            <p className="text-caption text-muted-foreground">
+              Clique em um município para investigar; use as setas para percorrer o mapa pelo teclado.{' '}
               <Link href="/radar-municipal" className="text-primary hover:underline">
                 Ver o mapa por outros indicadores →
               </Link>
             </p>
           </div>
 
-          <div className="min-w-0 space-y-6">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">Polos de atendimento</h3>
-              <p className="text-xs text-muted-foreground">
-                Municípios que mais recebem pacientes oncológicos de fora{polosAno ? ` · ${polosAno}` : ''}
+          <div className="min-w-0 space-y-5">
+            <div>
+              <h3 className="text-title-sm font-semibold text-foreground">Polos de atendimento</h3>
+              <p className="mb-1.5 text-caption text-muted-foreground">
+                Quem mais recebe pacientes de fora{polosAno ? ` · SIH/SUS ${polosAno}` : ''}
               </p>
               {polos.length === 0 ? (
                 <EmptyState title="Fluxo assistencial não carregado." className="py-6" />
               ) : (
-                <div className="space-y-1.5">
-                  {polos.map((polo) => (
-                    <Link
+                <div className="space-y-0.5">
+                  {polos.map((polo, indice) => (
+                    <RankBar
                       key={polo.municipio.id}
+                      posicao={indice + 1}
+                      nome={polo.municipio.nome}
+                      contexto={`de ${polo.municipiosDeOrigem} municípios`}
+                      valor={polo.internacoesRecebidasDeFora}
+                      valorFormatado={formatNumero(polo.internacoesRecebidasDeFora)}
+                      maximo={kpis.maiorPolo?.internacoesRecebidasDeFora ?? 0}
                       href={hrefMunicipio(polo.municipio.id)}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-2.5 transition-colors hover:border-primary/40 hover:bg-surface-muted"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-foreground">{polo.municipio.nome}</span>
-                        <span className="text-xs text-muted-foreground">
-                          recebe de {polo.municipiosDeOrigem} municípios
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-mono text-sm text-foreground">
-                        {formatNumero(polo.internacoesRecebidasDeFora)}
-                      </span>
-                    </Link>
+                    />
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">Municípios em maior atenção</h3>
-              <p className="text-xs text-muted-foreground">Maior índice do Radar em {competenciaLabel}</p>
-              <div className="space-y-1.5">
-                {maisCriticos.map((item) => (
-                  <Link
+            <div>
+              <h3 className="text-title-sm font-semibold text-foreground">Municípios em maior atenção</h3>
+              <p className="mb-1.5 text-caption text-muted-foreground">Maior índice em {competenciaLabel}</p>
+              <div className="space-y-0.5">
+                {maisCriticos.map((item, indice) => (
+                  <RankBar
                     key={item.municipio.id}
+                    posicao={indice + 1}
+                    nome={item.municipio.nome}
+                    valor={item.indice}
+                    valorFormatado={formatIndice(item.indice)}
+                    maximo={maisCriticos[0]?.indice ?? 1}
                     href={hrefMunicipio(item.municipio.id)}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-2.5 transition-colors hover:border-primary/40 hover:bg-surface-muted"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-foreground">{item.municipio.nome}</span>
-                      <span className="font-mono text-xs text-muted-foreground">índice {formatIndice(item.indice)}</span>
-                    </span>
-                    <RiskBadge classificacao={item.classificacao} className="shrink-0" />
-                  </Link>
+                    acessorio={<RiskBadge classificacao={item.classificacao} />}
+                  />
                 ))}
               </div>
             </div>
           </div>
         </div>
-
-        <div className="space-y-2 border-t border-border pt-5">
-          <h3 className="text-sm font-semibold text-foreground">Radar por Região de Saúde</h3>
-          <p className="text-xs text-muted-foreground">
-            Os 645 municípios agrupados nos 17 DRS — leitura regional da mesma competência
-          </p>
-          <RegionHeatGrid grupos={regioes} />
-        </div>
       </section>
 
-      {/* ---------------- NIVEL 3 - investigacao ---------------- */}
+      {/* ================= LEITURA REGIONAL ================= */}
+      <section className="space-y-3">
+        <SectionHeader
+          title="Distribuição por Região de Saúde"
+          description="Os 645 municípios agrupados nos 17 DRS, ordenados pela participação de municípios em Crítico ou Alto"
+        />
+        <RegionDistribuicao grupos={regioes} />
+        <p className="text-caption leading-relaxed text-muted-foreground">
+          Agrupamento dos índices <strong>municipais</strong> por DRS, feito nesta tela. Não confundir com o{' '}
+          <strong>Radar Regional</strong>, que é um índice calculado no grão regional, com supressão decidida de forma
+          independente sobre o dado bruto — são números diferentes, com métodos diferentes.
+        </p>
+      </section>
+
+      {/* ================= INVESTIGACAO ================= */}
       <section className="space-y-3 border-t border-border pt-6">
-        <h2 className="text-base font-semibold text-foreground">Aprofundar</h2>
+        <SectionHeader title="Aprofundar" />
         <div className="grid gap-3 sm:grid-cols-3">
           <LinkCard
             href="/radar-municipal"
