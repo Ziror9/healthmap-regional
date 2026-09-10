@@ -13,7 +13,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   API_HOST: z.string().default('0.0.0.0'),
   API_PORT: z.coerce.number().int().positive().default(4000),
-  API_CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  // localhost e 127.0.0.1 sao a mesma maquina, mas origens DIFERENTES para o
+  // navegador: aceitar so uma fazia a interface abrir sem dados quando
+  // alguem digitava 127.0.0.1:3000. Em producao, defina o dominio real.
+  API_CORS_ORIGIN: z.string().default('http://localhost:3000,http://127.0.0.1:3000'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL nao definida: copie .env.example para .env'),
 });

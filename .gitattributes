@@ -1,0 +1,3 @@
+# Snapshot do banco (pg_dump formato custom): binario. Sem isto, uma maquina com
+# core.autocrlf=true poderia converter quebras de linha e corromper o arquivo.
+*.dump binary
