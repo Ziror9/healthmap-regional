@@ -1,0 +1,13 @@
+{
+  "geradoEm": "2026-09-10T14:24:03.916Z",
+  "bancoDeOrigem": "healthmap",
+  "tamanhoBytes": 1277429,
+  "medidas": {
+    "riskScoreRealLinhas": 7740,
+    "riskScoreRealChecksum": "795de04de0a361231635c8532c53e510",
+    "fluxoPares": 3555,
+    "fluxoInternacoes": 183193,
+    "municipios": 660,
+    "migrationsAplicadas": 7
+  }
+}
