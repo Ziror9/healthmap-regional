@@ -23,13 +23,14 @@ Produto navegável sobre dados **reais** de 2024:
 | Dados              | 645 municípios e 17 Departamentos Regionais de Saúde (IBGE/SES-SP); internações oncológicas do SIH/SUS (12 competências de 2024); mortalidade do SIM (2023–2024); capacidade de leitos do CNES; população do IBGE; vulnerabilidade social IPVS/SEADE |
 | Radar de Risco     | 7.740 índices municipais (645 × 12 competências) e 204 regionais (17 DRS × 12)                                                                                                                                                                       |
 | Fluxo assistencial | 3.555 pares município de residência → município de internação em 2024, com 183.193 internações visíveis                                                                                                                                              |
-| Interface          | Visão Geral, Radar de Risco, Radar Municipal (mapa interativo por indicador), catálogo e ficha de município, Metodologia, Sobre                                                                                                                      |
-| Qualidade          | typecheck, lint e build limpos; 352 testes automatizados (API 60, DB 132, Risk 43, ETL 117)                                                                                                                                                          |
+| Interface          | Visão Geral, Radar de Risco, Radar Municipal (mapa interativo por indicador), Fluxo Assistencial (mapa de arcos), catálogo e ficha de município, Metodologia, Sobre                                                                                 |
+| Qualidade          | typecheck, lint e build limpos; 375 testes automatizados (API 64, DB 132, Risk 43, ETL 117, Web 19)                                                                                                                                                  |
 
-**Em andamento:** redesign de interface — etapas E1 a E4 concluídas (design
-system, mapa, Visão Geral, Radares); ver [`docs/design-system.md`](docs/design-system.md).
-Próximas entregas: página de Fluxo Assistencial com mapa de arcos (Fase 5.11) e
-página de Regiões de Saúde.
+**Em andamento:** redesign de interface — etapas E1 a E5 concluídas (design
+system, mapa, Visão Geral, Radares, Fluxo Assistencial — Fase 5.11, ver
+[`docs/fase-5.11-relatorio.md`](docs/fase-5.11-relatorio.md)); ver
+[`docs/design-system.md`](docs/design-system.md). Próxima entrega: página de
+Regiões de Saúde.
 
 **Fora do escopo atual:** autenticação e controle de acesso (Fase 6). A
 aplicação **não deve ser exposta fora de ambiente local**. Todas as limitações
@@ -197,6 +198,7 @@ Faça **30 minutos antes**:
 | `/`                | Visão Geral: indicadores com fonte e período, mapa do Radar, polos de atendimento, distribuição por Região de Saúde |
 | `/radar`           | Ranking completo do Radar de Risco, filtrável por classificação e paginado                                          |
 | `/radar-municipal` | Mapa por indicador (internações, mortalidade, vulnerabilidade, risco); o estado fica na URL                         |
+| `/fluxo`           | Fluxo assistencial: polos, para onde vão os residentes e de onde vêm os pacientes, com arcos no mapa                |
 | `/municipios`      | Catálogo dos 645 municípios, com busca e filtro por região                                                          |
 | `/municipios/[id]` | Ficha do município: índice, componentes, fluxo assistencial, indicadores                                            |
 | `/metodologia`     | Como cada número é produzido — e o que ainda não é                                                                  |
@@ -207,6 +209,8 @@ Links prontos para a demonstração (os ids valem para o snapshot versionado):
 - `http://localhost:3000/municipios/302` — Jaú, um dos maiores polos de atendimento
 - `http://localhost:3000/municipios/16` — Adamantina: 86% das internações acontecem fora do município
 - `http://localhost:3000/radar-municipal?indicador=TAXA_MORTALIDADE_ONCOLOGICA_10K_HAB&municipio=78` — Barretos, mortalidade oncológica
+- `http://localhost:3000/fluxo?municipio=302&modo=destino` — Jaú: de onde vêm os 8.186 pacientes que atende (157 municípios)
+- `http://localhost:3000/fluxo?municipio=16` — Adamantina: para onde vão os residentes
 
 ---
 

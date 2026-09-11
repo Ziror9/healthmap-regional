@@ -347,7 +347,12 @@ function DashboardPronto({ estado }: { estado: Extract<Estado, { tipo: 'pronto' 
 
           <div className="min-w-0 space-y-5">
             <div>
-              <h3 className="text-title-sm font-semibold text-foreground">Polos de atendimento</h3>
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 className="text-title-sm font-semibold text-foreground">Polos de atendimento</h3>
+                <Link href="/fluxo" className="shrink-0 text-caption text-primary hover:underline">
+                  Mapa de fluxo →
+                </Link>
+              </div>
               <p className="mb-1.5 text-caption text-muted-foreground">
                 Quem mais recebe pacientes de fora{polosAno ? ` · SIH/SUS ${polosAno}` : ''}
               </p>

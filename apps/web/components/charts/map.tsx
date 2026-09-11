@@ -5,7 +5,7 @@ import { Minus, Plus, Maximize2 } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { getClassificacaoDisplay } from '@/lib/risk-display';
-import { projetarMalha, type GeoJsonCollection, type MunicipioGeometria } from '@/lib/geo-projection';
+import { projetarMalha, type GeoJsonCollection, type MunicipioGeometria, type Ponto } from '@/lib/geo-projection';
 import { useMapViewport } from '@/lib/use-map-viewport';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +34,18 @@ export interface MunicipioNoMapa {
   nome: string;
   classificacao: ClassificacaoRisco | null;
   indice: number | null;
+}
+
+/**
+ * O que uma camada desenhada sobre o mapa recebe: os centroides da MESMA malha
+ * projetada que desenha os municipios, e a escala atual de tela. Fase 5.11: e
+ * assim que os arcos de fluxo ancoram nos municipios sem uma segunda projecao.
+ */
+export interface ContextoOverlay {
+  centroideDe: (codigoIbge7: string) => Ponto | undefined;
+  /** Unidades do SVG por pixel de tela - varia com o zoom e com a largura do container. */
+  unidadesPorPixel: number;
+  zoom: number;
 }
 
 /** Trava de leitura: nenhuma interacao do mapa reprojeta a malha. */
@@ -92,12 +104,12 @@ export function MapaSP({
   /** Legenda da escala, exibida no rodape do quadro do mapa. */
   legenda?: ReactNode;
   /**
-   * Camada desenhada SOBRE os municipios, no mesmo sistema de coordenadas
-   * (unidades da caixa de desenho). E a costura prevista para o mapa de fluxo
-   * da Fase 5.11: os arcos usarao os centroides de lib/geo-projection.ts, sem
-   * segunda implementacao de projecao. Nao ha consumidor ainda.
+   * Camada desenhada SOBRE os municipios, no mesmo sistema de coordenadas.
+   * E uma FUNCAO, e nao um ReactNode, porque quem desenha precisa das
+   * coordenadas que so este componente tem (centroides da malha projetada e
+   * escala de tela). Consumidor: app/fluxo (Fase 5.11, arcos origem->destino).
    */
-  overlay?: ReactNode;
+  overlay?: (contexto: ContextoOverlay) => ReactNode;
 }) {
   const router = useRouter();
   const [geo, setGeo] = useState<GeoJsonCollection | null>(null);
@@ -140,6 +152,8 @@ export function MapaSP({
     for (const g of malha?.municipios ?? []) mapa.set(g.codigoIbge7, g);
     return mapa;
   }, [malha]);
+
+  const centroideDe = useCallback((codigo: string) => geometriaPorCodigo.get(codigo)?.centroide, [geometriaPorCodigo]);
 
   const classes = useMemo(
     () =>
@@ -339,7 +353,12 @@ export function MapaSP({
               vectorEffect="non-scaling-stroke"
             />
           )}
-          {overlay}
+          {overlay?.({
+            centroideDe,
+            // Largura real do SVG na tela; 700 so na primeira pintura, antes da ref existir.
+            unidadesPorPixel: viewport.vista.w / (viewport.refSvg.current?.clientWidth || 700),
+            zoom: viewport.zoom,
+          })}
         </g>
       </svg>
 

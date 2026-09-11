@@ -242,3 +242,64 @@ describe('Fluxo - proveniencia declarada (correcao pos-Fase 5.10)', () => {
     }
   });
 });
+
+/**
+ * Fase 5.11 - o mapa de fluxo combina dois endpoints e soma, na tela, as
+ * entradas visiveis de um polo. Estes testes fixam as propriedades de que ele
+ * depende, para que uma mudanca no servidor nao faca a pagina mostrar um
+ * numero diferente do ranking de polos sem que ninguem perceba.
+ */
+describe('Fase 5.11 - invariantes que o mapa de fluxo assume', () => {
+  it('para cada polo, as entradas visiveis de fora somam exatamente o volume e a contagem do ranking de polos', async () => {
+    const polos = await readJson<PolosEnvelope>(await fetch(`${baseUrl}/api/fluxo/polos?limite=5`));
+    expect(polos.data.length).toBeGreaterThan(0);
+
+    for (const polo of polos.data) {
+      const detalhe = await readJson<FluxoMunicipioEnvelope>(await fetch(`${baseUrl}/api/fluxo/municipios/${polo.municipio.id}`));
+      const deFora = detalhe.data!.entradas.filter((e) => !e.suprimido && !e.mesmoMunicipio && e.internacoes !== null);
+      expect(deFora.reduce((total, e) => total + e.internacoes!, 0)).toBe(polo.internacoesRecebidasDeFora);
+      expect(deFora.length).toBe(polo.municipiosDeOrigem);
+    }
+  });
+
+  it('o resumo de saida conta exatamente os pares da lista (visiveis e suprimidos)', async () => {
+    const polos = await readJson<PolosEnvelope>(await fetch(`${baseUrl}/api/fluxo/polos?limite=3`));
+    for (const polo of polos.data) {
+      const detalhe = await readJson<FluxoMunicipioEnvelope>(await fetch(`${baseUrl}/api/fluxo/municipios/${polo.municipio.id}`));
+      const { saidas, resumo } = detalhe.data!;
+      expect(resumo.paresSuprimidos).toBe(saidas.filter((s) => s.suprimido).length);
+      expect(resumo.destinosVisiveis).toBe(saidas.filter((s) => !s.suprimido).length);
+    }
+  });
+
+  it('origem com todo o fluxo suprimido: nenhum volume visivel e taxa derivada null, nunca 0', async () => {
+    const [origem] = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT "municipioResidenciaId" AS id FROM gold."FatoFluxoInternacao"
+      WHERE origem = 'REAL' GROUP BY 1 HAVING bool_and(suprimido) ORDER BY 1 LIMIT 1
+    `;
+    expect(origem).toBeDefined();
+
+    const detalhe = await readJson<FluxoMunicipioEnvelope>(await fetch(`${baseUrl}/api/fluxo/municipios/${origem!.id}`));
+    const { saidas, resumo } = detalhe.data!;
+    expect(saidas.length).toBeGreaterThan(0);
+    expect(saidas.every((s) => s.suprimido && s.internacoes === null)).toBe(true);
+    expect(resumo.internacoesVisiveis).toBe(0);
+    expect(resumo.paresSuprimidos).toBe(saidas.length);
+    expect(resumo.taxaFluxoExternoVisivel).toBeNull();
+  });
+
+  it('municipio que nao recebe nenhum paciente devolve entradas vazias, e nao erro', async () => {
+    const [municipio] = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT m.id FROM silver."Municipio" m
+      WHERE m."codigoIbge7" LIKE '35%'
+        AND NOT EXISTS (SELECT 1 FROM gold."FatoFluxoInternacao" f WHERE f."municipioInternacaoId" = m.id)
+      ORDER BY m.id LIMIT 1
+    `;
+    expect(municipio).toBeDefined();
+
+    const res = await fetch(`${baseUrl}/api/fluxo/municipios/${municipio!.id}`);
+    expect(res.status).toBe(200);
+    const detalhe = await readJson<FluxoMunicipioEnvelope>(res);
+    expect(detalhe.data!.entradas).toEqual([]);
+  });
+});

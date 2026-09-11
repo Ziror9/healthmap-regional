@@ -811,6 +811,48 @@ Atingido.
 
 ---
 
+## Fase 5.11 - Fluxo Assistencial (mapa de arcos) `CONCLUIDA (parcial - ver limitacoes)`
+
+**Objetivo.** Dar ao fluxo assistencial da Fase 5.8 (`gold.FatoFluxoInternacao`)
+uma pagina propria com leitura geografica: para onde os pacientes de cada
+municipio vao se internar, e de onde vem os que cada polo atende. Executada
+como etapa E5 do redesign, mas registrada como fase propria por ser
+**alteracao funcional** (pagina e interacao novas), nao so visual.
+
+**Entregas.**
+
+1. Pagina `/fluxo` (grupo Analise da navegacao): visao de entrada por
+   **polos** (`/api/fluxo/polos`), modo **origem -> destino** e modo
+   **destino -> origem** (`/api/fluxo/municipios/:id`), **Top N** (5/10/20/
+   todos), busca de municipio, ranking sincronizado com o mapa, estado na URL
+   (`municipio`, `modo`, `top`, `ano`) com fallback para valor invalido.
+2. Mapa com **arcos** sobre o `MapaSP`: a prop `overlay` virou funcao que
+   recebe os centroides da propria malha projetada - nenhuma segunda
+   projecao. Espessura = volume (escala raiz), grafite, sem rampa de risco.
+3. Logica pura em `apps/web/lib/fluxo-arcos.ts`, desacoplada da origem dos
+   dados, para que uma futura visao estadual reaproveite as mesmas regras.
+4. Primeiros testes automatizados de `apps/web` (vitest, 19 testes) e 4
+   testes de API fixando os invariantes entre `/polos` e `/municipios/:id`.
+
+**Nenhum endpoint novo.** A visao estadual (todos os pares de uma vez) nao foi
+implementada: exigiria endpoint novo, que nao foi autorizado. A arquitetura
+esta preparada para ela (ver relatorio #6).
+
+**RiskScore/RiskConfig/pesos/metodologia/FatoFluxoInternacao/dados:** nada
+alterado. Checksum do RiskScore REAL identico antes e depois.
+
+Detalhes completos: [`docs/fase-5.11-relatorio.md`](fase-5.11-relatorio.md).
+
+**Dependencias.** Fase 5.8 (dados de fluxo), E2 do redesign (projecao unica
+do mapa).
+
+**Criterio de conclusao.** Selecao de municipio, destinos, polos, Top N,
+arcos, interacao origem->destino e destino->origem funcionando sobre os
+endpoints existentes; par suprimido nunca desenhado nem somado; numeros da
+pagina identicos aos da API; suite verde. Atingido.
+
+---
+
 ## Fase 6 - Seguranca + Governanca
 
 **Objetivo.** Tornar o MVP operavel com controle de acesso e rastreabilidade.

@@ -2,6 +2,7 @@
 
 import type { FluxoItemDTO, FluxoMunicipioDTO } from '@healthmap/contracts';
 import { ArrowRight, Building2, MapPin } from 'lucide-react';
+import Link from 'next/link';
 import { formatNumero } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -140,6 +141,14 @@ export function FluxoPanel({ fluxo }: { fluxo: FluxoMunicipioDTO }) {
           DATASUS.
         </span>
       </p>
+
+      <Link
+        href={`/fluxo?municipio=${fluxo.municipio.id}`}
+        className="inline-flex items-center gap-1 text-caption text-primary hover:underline"
+      >
+        Ver no mapa de fluxo
+        <ArrowRight className="h-3 w-3" aria-hidden />
+      </Link>
     </div>
   );
 }

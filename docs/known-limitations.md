@@ -398,10 +398,38 @@
   definido (`components/domain/*-badge.tsx`, `lib/risk-display.ts`), mas
   nenhum dado com essa natureza existe ainda (Fase 7 e quem introduz
   projecao estatistica).
-- Testes automatizados de `apps/web` nao foram criados nesta fase (o
-  projeto nao tinha tooling de teste de frontend antes da Fase 4); a
-  validacao foi feita via `typecheck`, `lint`, `build` de producao e
-  verificacao manual das paginas no navegador - ver `docs/fase-4-relatorio.md`.
+- Testes automatizados de `apps/web` nao foram criados na Fase 4 (o
+  projeto nao tinha tooling de teste de frontend); a validacao foi feita via
+  `typecheck`, `lint`, `build` de producao e verificacao manual das paginas
+  no navegador - ver `docs/fase-4-relatorio.md`. **A Fase 5.11 introduziu o
+  vitest em `apps/web`**, mas so para logica pura (`lib/fluxo-arcos.ts`, 19
+  testes). Nao ha teste de componente nem de ponta a ponta: o restante da
+  interface continua validado so no navegador.
+- **Fluxo Assistencial (Fase 5.11) mostra um municipio por vez.** Nao ha
+  visao estadual com todos os pares de uma vez: exigiria um endpoint novo
+  (os existentes devolvem os pares de UM municipio ou o ranking de polos),
+  que nao foi criado. A visao de entrada usa o ranking de polos
+  (`/api/fluxo/polos`, no maximo 50). `lib/fluxo-arcos.ts` e a camada do
+  mapa nao dependem da origem dos dados, entao a visao estadual, se
+  aprovada, e um novo consumidor e nao uma reescrita.
+- **O mapa de fluxo desenha so o fluxo VISIVEL.** Par com menos de 5
+  internacoes no ano e suprimido (Fase 5.8) e nunca vira arco nem entra em
+  soma - aparece como contagem declarada e numa lista de nomes. Em municipios
+  pequenos isso pode significar nenhum arco: Pracinha, por exemplo, tem 5
+  pares de saida, todos suprimidos, e a pagina diz exatamente isso em vez de
+  mostrar "0". O volume real e sempre maior ou igual ao desenhado.
+- **"Recebidas de fora" no modo destino e soma de apresentacao** sobre as
+  entradas visiveis que a API ja devolveu (o endpoint so traz resumo do lado
+  origem). A soma e identica ao `internacoesRecebidasDeFora` que
+  `/api/fluxo/polos` calcula no servidor - fixado por teste de API.
+- **Arcos ligam centroides**, nao enderecos de hospital: indicam municipio de
+  residencia -> municipio de internacao, nao a rota percorrida. A espessura
+  usa escala de raiz quadrada para que fluxos pequenos continuem visiveis ao
+  lado de fluxos grandes; o numero exato fica no ranking.
+- **Rotulos do mapa de fluxo nao evitam colisao.** Os 3 maiores fluxos (5
+  maiores polos) sao rotulados; municipios vizinhos podem sobrepor rotulos
+  (ex.: Barra Bonita e Lencois Paulista, ao lado de Jau). O ranking lateral e
+  a leitura exata; o zoom separa os rotulos.
 
 ## 10. Ingestao REAL (Fase 5)
 

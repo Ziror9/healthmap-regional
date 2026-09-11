@@ -424,12 +424,40 @@ Três decisões sustentam isso:
 
 `vector-effect="non-scaling-stroke"` mantém a borda em 0,6px em qualquer zoom.
 
-### 8.7 Costura para o mapa de fluxo
+### 8.7 Camadas sobre o mapa (`overlay`) e o mapa de fluxo
 
-`MapaSP` aceita `overlay?: ReactNode`, desenhado sobre os municípios **no mesmo
-sistema de coordenadas**. É a costura prevista para os arcos da Fase 5.11: eles
-usarão os centroides de `geo-projection.ts`, sem segunda implementação de
-projeção. **Sem consumidor até a E5** — a prop existe e está inerte.
+`MapaSP` aceita `overlay?: (contexto: ContextoOverlay) => ReactNode`, desenhado
+sobre os municípios **no mesmo sistema de coordenadas**. É uma função, e não um
+nó pronto, porque quem desenha precisa do que só o mapa sabe:
+
+| Campo do contexto  | Para quê                                                                      |
+| ------------------ | ----------------------------------------------------------------------------- |
+| `centroideDe(cod)` | ponta de arco e ponto — o **mesmo** centroide da malha desenhada              |
+| `unidadesPorPixel` | rótulo e ponto com tamanho fixo na tela em qualquer zoom e largura de coluna |
+| `zoom`             | reservado a decisões por nível de zoom                                        |
+
+Não existe segunda projeção: um arco que usasse outra conta de coordenadas
+terminaria fora do polígono do município.
+
+**Mapa de fluxo** (`components/charts/fluxo-layer.tsx`, Fase 5.11):
+
+- **espessura = volume** — único canal de magnitude, escala de raiz quadrada,
+  em pixels de tela (`non-scaling-stroke`);
+- **grafite** (`foreground`), com opacidade para recuar os demais quando um
+  item do ranking está em destaque. **Nunca a rampa de risco**: fluxo não é
+  risco, e pintá-lo com a rampa faria o leitor ler gravidade onde há
+  deslocamento;
+- **vermelho só no município selecionado** (seleção, não valor);
+- **sem seta**: o arco curva sempre à esquerda do sentido origem → destino, o
+  que também separa A→B de B→A; o ponto fica na contraparte. Seta com traço que
+  não escala se deforma no zoom;
+- **o próprio município não vira arco** (vai para o resumo) e **par suprimido
+  não vira arco nem entra em soma** — aparece como contagem declarada;
+- municípios envolvidos no fluxo ganham `fill-border-strong` sobre o fundo
+  `fill-surface-muted` — contraste de estrutura, não escala de dado.
+
+Visão de entrada (sem município): **discos de área proporcional** ao volume
+recebido de fora, nos maiores polos. Mesma cor, mesma lógica.
 
 ---
 
@@ -437,10 +465,10 @@ projeção. **Sem consumidor até a E5** — a prop existe e está inerte.
 
 Porque ainda não existe:
 
-- página de Fluxo Assistencial e mapa de arcos (E5 / Fase 5.11);
 - página de Regiões de Saúde e interface do Radar Regional (E6);
 - ficha de município em abas (E6);
 - tema escuro — os tokens de `.dark` não são aplicados;
 - fonte dedicada (seção 5);
-- testes automatizados de frontend — `apps/web` não tem framework de testes; a
-  validação do redesign foi medição no DOM e verificação no navegador.
+- testes de componente — `apps/web` tem vitest desde a Fase 5.11, mas só para
+  lógica pura (`lib/fluxo-arcos.ts`); a validação visual continua sendo
+  medição no DOM e verificação no navegador.
