@@ -1,4 +1,4 @@
-import { Activity, BarChart3, BookOpen, Info, type LucideIcon, Map as MapIcon, Radar, Waypoints } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Info, Layers, type LucideIcon, Map as MapIcon, Radar, Waypoints } from 'lucide-react';
 
 /**
  * Registro unico de navegacao - consumido pela Sidebar (lista) e pela Topbar
@@ -32,6 +32,7 @@ export const NAV_GRUPOS: NavGrupo[] = [
       { href: '/radar-municipal', label: 'Radar Municipal', icon: Radar },
       { href: '/fluxo', label: 'Fluxo Assistencial', icon: Waypoints },
       { href: '/radar', label: 'Radar de Risco', icon: Activity },
+      { href: '/regioes', label: 'Regiões de Saúde', icon: Layers },
     ],
   },
   {

@@ -94,7 +94,7 @@ nenhuma RiskConfig alterada - confirmado por teste automatizado.
 Historico de decisoes, bugs corrigidos e numeros exatos de cada fase: ver
 os relatorios abaixo.
 
-**Redesign de interface em andamento (etapas E1-E5 concluidas).** Trabalho
+**Redesign de interface em andamento (etapas E1-E6 concluidas).** Trabalho
 de UX/UI sobre a aplicacao existente, sem alterar metodologia, dados ou
 arquitetura. Ja entregue: Design System com tokens proprios (E1), correcao da
 projecao do mapa e zoom/pan/teclado (E2), a Visao Geral reorganizada com
@@ -103,7 +103,10 @@ estado na URL (E4) e a **Fase 5.11 - Fluxo Assistencial** (E5): pagina
 `/fluxo` com arcos origem->destino sobre o `MapaSP`, consumindo so os
 endpoints `/api/fluxo/*` da Fase 5.8 - **nenhum endpoint novo**; par
 suprimido nunca vira arco nem entra em soma. Ver
-`docs/fase-5.11-relatorio.md`. Regra que organiza a paleta:
+`docs/fase-5.11-relatorio.md`. A **E6** entregou `/regioes`, a interface do
+Radar Regional (`/api/risk/regioes`, Fase 5.5) - explicitamente distinta do
+agrupamento de indices municipais por DRS da Visao Geral, que continua
+existindo e respondendo outra pergunta. Regra que organiza a paleta:
 **cor e dado, neutro e estrutura** - o vermelho institucional e reservado a
 marca, acao, item ativo e foco, e NUNCA representa um valor; a escala de risco
 usa uma rampa sequencial de luminancia decrescente, exclusiva de dado.

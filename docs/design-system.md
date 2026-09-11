@@ -459,14 +459,32 @@ terminaria fora do polígono do município.
 Visão de entrada (sem município): **discos de área proporcional** ao volume
 recebido de fora, nos maiores polos. Mesma cor, mesma lógica.
 
+### 8.8 Mapa regional (`/regioes`, E6)
+
+O Radar Regional tem um índice por DRS, mas o mapa só tem polígonos de
+município. Cada município é pintado com a **classificação da sua DRS** — mesma
+rampa de risco, porque é dado de risco. Três salvaguardas para ninguém ler a
+cor como o risco do município:
+
+- a legenda do mapa diz "cada município tem a cor do índice da **sua DRS**";
+- o tooltip nomeia a DRS antes da classificação ("DRS Registro (DRS-12) ·
+  Crítico · índice regional 1.00");
+- um aviso no topo da página, antes de qualquer número, diz que o índice
+  regional **não é a média dos municípios** e aponta o Radar de Risco para o
+  índice municipal.
+
+Com uma DRS selecionada, as demais recuam para 25% de opacidade — a cor
+continua sendo a delas (dado); só perdem destaque. Não há contorno de DRS: o
+GeoJSON não traz a geometria dissolvida por região, e DRS vizinhas na mesma
+faixa se fundem visualmente (o tooltip e a tabela resolvem).
+
 ---
 
 ## 9. O que este documento não cobre
 
 Porque ainda não existe:
 
-- página de Regiões de Saúde e interface do Radar Regional (E6);
-- ficha de município em abas (E6);
+- ficha de município em abas (adiada — fora do escopo da E6);
 - tema escuro — os tokens de `.dark` não são aplicados;
 - fonte dedicada (seção 5);
 - testes de componente — `apps/web` tem vitest desde a Fase 5.11, mas só para

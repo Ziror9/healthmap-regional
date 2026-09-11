@@ -279,6 +279,25 @@
   confundidas: o endpoint regional e um calculo independente sobre o dado
   bruto regional, o card e uma visualizacao dos indices municipais
   arrumados por DRS.
+- **A pagina `/regioes` (redesign E6) e a interface do Radar Regional.**
+  Consome `/api/risk/regioes` e `/api/risk/regioes/:id/components` - nenhum
+  endpoint novo - e abre com um aviso de que o indice regional nao e a media
+  dos municipios. Limitacoes da pagina:
+  - o mapa pinta cada municipio com a classificacao da sua DRS (nao ha
+    geometria de DRS no GeoJSON); DRS vizinhas na mesma faixa se fundem
+    visualmente, e nao ha contorno de regiao - o tooltip e a tabela nomeiam
+    a DRS;
+  - com `origem=DEMO` a tabela lista as 5 regioes ilustrativas, mas o mapa
+    fica sem cor: os municipios DEMO (`36xxxxx`) nao existem no GeoJSON;
+  - Pressao Hospitalar Estimada regional so existe em 4 das 12 competencias
+    de 2024 (02, 06, 08 e 12 - o mesmo corte do CNES historico municipal); nas
+    outras 8 o indice regional e composto so com Vulnerabilidade
+    (renormalizacao de pesos, Fase 5.5), e o painel mostra a Pressao como
+    indisponivel, com o motivo;
+  - o motivo de indisponibilidade da ficha do municipio para
+    VULNERABILIDADE ainda diz que a fonte "nao foi definida", texto anterior
+    a Fase 5.4 (IPVS). A pagina regional usa texto proprio e correto; o da
+    ficha nao foi alterado nesta etapa.
 
 ## 7. Plataforma
 

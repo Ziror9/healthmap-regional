@@ -245,6 +245,12 @@ export default function MunicipioDetalhePage() {
         actions={
           <div className="flex flex-wrap items-center gap-3">
             <FilterBar />
+            <Link
+              href={`/regioes?regiao=${municipio.regiaoSaude.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary"
+            >
+              DRS {municipio.regiaoSaude.nome}
+            </Link>
             <Link href="/radar" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-primary">
               <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
               Voltar ao ranking

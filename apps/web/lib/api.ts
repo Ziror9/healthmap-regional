@@ -15,6 +15,7 @@ import type {
   RiskComponenteItemDTO,
   RiskFiltroResolvidoDTO,
   RiskScoreItemDTO,
+  RiskScoreRegionalItemDTO,
 } from '@healthmap/contracts';
 
 /**
@@ -78,6 +79,12 @@ export interface RiskItemEnvelope {
 export interface RiskComponentesEnvelope {
   data: RiskComponenteItemDTO[];
   meta: { filtros: RiskFiltroResolvidoDTO };
+}
+
+/** Radar Regional (Fase 5.5) - mesmo envelope do municipal, trocando municipio por DRS. */
+export interface RiskRegionalListEnvelope {
+  data: RiskScoreRegionalItemDTO[];
+  meta: { filtros: RiskFiltroResolvidoDTO; pagination: PaginationMeta };
 }
 
 export interface MunicipioDetalheEnvelope {
@@ -183,6 +190,20 @@ export async function getRiskComponentes(
   params: RiskFiltros = {},
 ): Promise<RiskComponentesEnvelope> {
   return fetchApi(`/api/risk/${municipioId}/components${toQueryString(params)}`);
+}
+
+/** 17 DRS REAL cabem numa pagina (teto da API: 200). */
+export async function getRiskRegional(
+  params: RiskFiltros & { page?: number; pageSize?: number } = {},
+): Promise<RiskRegionalListEnvelope> {
+  return fetchApi(`/api/risk/regioes${toQueryString(params)}`);
+}
+
+export async function getRiskComponentesRegiao(
+  regiaoSaudeId: number,
+  params: RiskFiltros = {},
+): Promise<RiskComponentesEnvelope> {
+  return fetchApi(`/api/risk/regioes/${regiaoSaudeId}/components${toQueryString(params)}`);
 }
 
 /** Radar Municipal (Fase 5.7). Sem paginacao: devolve os 645 municipios REAL de uma vez para o indicador selecionado - nao pagina (nunca 1 requisicao por municipio). */
