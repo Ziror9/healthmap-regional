@@ -19,7 +19,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { ApiRequestError, getFluxoMunicipio, getPolosAtendimento, getTodosMunicipios } from '@/lib/api';
-import { formatNumero } from '@/lib/format';
+import { formatNumero, formatPercentual } from '@/lib/format';
 import {
   OPCOES_TOP,
   montarArcos,
@@ -630,7 +630,7 @@ function ResumoOrigem({ fluxo }: { fluxo: FluxoMunicipioDTO }) {
         nota={
           resumo.taxaFluxoExternoVisivel === null ? undefined : (
             <>
-              <span className="tabular">{(resumo.taxaFluxoExternoVisivel * 100).toFixed(1)}%</span> do visível ·{' '}
+              <span className="tabular">{formatPercentual(resumo.taxaFluxoExternoVisivel)}</span> do visível ·{' '}
               <span className="uppercase tracking-wide">derivado</span>
             </>
           )

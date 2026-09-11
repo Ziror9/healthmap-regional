@@ -22,7 +22,16 @@ export function formatNumero(valor: number, casasDecimais = 0): string {
   }).format(valor);
 }
 
-/** Indice do Radar (0-1) formatado com 2 casas, sempre no mesmo formato em toda a interface. */
+/**
+ * Indice do Radar (0-1) com 2 casas, sempre no mesmo formato em toda a
+ * interface. Virgula decimal como todo numero da tela: antes era `toFixed`,
+ * e a mesma tela mostrava "1.00" ao lado de "0,0449".
+ */
 export function formatIndice(valor: number): string {
-  return valor.toFixed(2);
+  return formatNumero(valor, 2);
+}
+
+/** Proporcao 0-1 como percentual pt-BR ("86,3%"). So apresentacao: a proporcao vem pronta da API. */
+export function formatPercentual(proporcao: number, casasDecimais = 1): string {
+  return `${formatNumero(proporcao * 100, casasDecimais)}%`;
 }

@@ -414,7 +414,7 @@ function ComponenteCard({ item }: { item: RiskComponenteItemDTO }) {
         <div className="mt-3 space-y-2">
           <p className="text-2xl font-semibold text-foreground">{item.valorBruto !== null ? formatNumero(item.valorBruto, 4) : '—'}</p>
           <p className="text-xs text-muted-foreground">
-            normalizado (percentil na coorte): {item.valorNormalizado !== null ? item.valorNormalizado.toFixed(2) : '—'}
+            normalizado (percentil na coorte): {item.valorNormalizado !== null ? formatNumero(item.valorNormalizado, 2) : '—'}
           </p>
           <ConfidenceBadge confiabilidade={item.confiabilidade} />
         </div>

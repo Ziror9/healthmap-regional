@@ -1,3 +1,5 @@
+import { formatNumero } from '@/lib/format';
+
 /**
  * Grafico de linha simples em SVG puro - sem dependencia de biblioteca de
  * graficos (o volume de pontos e pequeno: no maximo uma competencia por
@@ -21,7 +23,7 @@ const PADDING_BASE = 28;
 
 export function LineChart({
   pontos,
-  formatarValor = (valor: number) => valor.toFixed(2),
+  formatarValor = (valor: number) => formatNumero(valor, 2),
   valorMinimo,
   valorMaximo,
   indiceDestacado,

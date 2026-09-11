@@ -294,10 +294,16 @@
     outras 8 o indice regional e composto so com Vulnerabilidade
     (renormalizacao de pesos, Fase 5.5), e o painel mostra a Pressao como
     indisponivel, com o motivo;
-  - o motivo de indisponibilidade da ficha do municipio para
-    VULNERABILIDADE ainda diz que a fonte "nao foi definida", texto anterior
-    a Fase 5.4 (IPVS). A pagina regional usa texto proprio e correto; o da
-    ficha nao foi alterado nesta etapa.
+  - (corrigido apos a E6) o motivo de indisponibilidade da ficha do
+    municipio para VULNERABILIDADE dizia que a fonte "nao foi definida",
+    texto anterior a Fase 5.4 (IPVS); agora diz que nao ha valor IPVS/SEADE
+    para o municipio na competencia, sem apontar causa que a API nao informa.
+- **Separador decimal unico (corrigido apos a E6).** O indice do Radar era
+  formatado com `toFixed` ("1.00") enquanto os demais numeros usavam pt-BR
+  ("0,0449"), as vezes na mesma tela. Todo numero exibido passa agora por
+  `apps/web/lib/format.ts` (`formatNumero`, `formatIndice`,
+  `formatPercentual`), com virgula decimal; `toFixed` ficou restrito a
+  coordenadas de SVG. Nenhum valor mudou, so a grafia.
 
 ## 7. Plataforma
 

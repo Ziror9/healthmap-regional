@@ -24,7 +24,7 @@ Produto navegável sobre dados **reais** de 2024:
 | Radar de Risco     | 7.740 índices municipais (645 × 12 competências) e 204 regionais (17 DRS × 12)                                                                                                                                                                       |
 | Fluxo assistencial | 3.555 pares município de residência → município de internação em 2024, com 183.193 internações visíveis                                                                                                                                              |
 | Interface          | Visão Geral, Radar de Risco, Radar Municipal (mapa interativo por indicador), Fluxo Assistencial (mapa de arcos), Regiões de Saúde (Radar Regional), catálogo e ficha de município, Metodologia, Sobre                                                                                 |
-| Qualidade          | typecheck, lint e build limpos; 385 testes automatizados (API 67, DB 132, Risk 43, ETL 117, Web 26)                                                                                                                                                  |
+| Qualidade          | typecheck, lint e build limpos; 388 testes automatizados (API 67, DB 132, Risk 43, ETL 117, Web 29)                                                                                                                                                  |
 
 **Em andamento:** redesign de interface — etapas E1 a E6 concluídas (design
 system, mapa, Visão Geral, Radares, Fluxo Assistencial — Fase 5.11, ver

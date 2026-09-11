@@ -454,7 +454,7 @@ function PainelRegiao({
                     </span>
                     {item.valorNormalizado !== null && (
                       <span className="tabular text-caption text-muted-foreground">
-                        normalizado {item.valorNormalizado.toFixed(2)}
+                        normalizado {formatNumero(item.valorNormalizado, 2)}
                       </span>
                     )}
                     <ConfidenceBadge confiabilidade={item.confiabilidade} />

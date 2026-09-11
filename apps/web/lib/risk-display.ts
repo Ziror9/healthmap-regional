@@ -255,7 +255,9 @@ const MOTIVO_INDISPONIBILIDADE: Record<ComponenteRisco, string> = {
     'Metodologia ainda não definida: a janela móvel e o tratamento de sazonalidade da variação da taxa de internação não foram especificados (ver Metodologia).',
   SEVERIDADE:
     'Metodologia ainda não definida: a fórmula de composição dos sub-indicadores (permanência média, diárias de UTI, letalidade) não foi especificada (ver Metodologia).',
-  VULNERABILIDADE: 'Fonte do indicador de vulnerabilidade social ainda não definida (ver Metodologia).',
+  // A fonte existe desde a Fase 5.4 (IPVS/SEADE); o texto anterior ainda a
+  // chamava de "nao definida". Generico pelo mesmo motivo dos demais.
+  VULNERABILIDADE: 'Sem valor de vulnerabilidade social (IPVS/SEADE) para o município nesta competência.',
 };
 
 export function getMotivoIndisponibilidade(componente: ComponenteRisco): string {

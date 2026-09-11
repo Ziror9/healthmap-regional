@@ -237,6 +237,12 @@ indicador, para alinhar dígitos sem recorrer a monoespaçada. A mono continua
 sendo escolha deliberada onde o valor **é** um código (IBGE) ou onde a
 comparação caractere a caractere importa.
 
+**Grafia pt-BR em todo número exibido**: vírgula decimal, ponto de milhar,
+sempre por `lib/format.ts` — `formatNumero(v, casas)`, `formatIndice(v)` (2
+casas, "0,94") e `formatPercentual(proporcao)` ("86,3%"). `toFixed` só em
+coordenada de SVG, nunca em texto. Antes da correção, a mesma tela mostrava
+"1.00" ao lado de "0,0449".
+
 ---
 
 ## 6. Régua, forma e profundidade

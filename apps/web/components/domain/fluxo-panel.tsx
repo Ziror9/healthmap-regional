@@ -3,7 +3,7 @@
 import type { FluxoItemDTO, FluxoMunicipioDTO } from '@healthmap/contracts';
 import { ArrowRight, Building2, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { formatNumero } from '@/lib/format';
+import { formatNumero, formatPercentual } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 /**
@@ -91,7 +91,7 @@ export function FluxoPanel({ fluxo }: { fluxo: FluxoMunicipioDTO }) {
               'Sem volume visível para calcular proporção'
             ) : (
               <>
-                <span className="font-medium">{(taxa * 100).toFixed(1)}%</span> do volume visível ·{' '}
+                <span className="font-medium">{formatPercentual(taxa)}</span> do volume visível ·{' '}
                 <span className="uppercase tracking-wide">derivado</span>
               </>
             )}
