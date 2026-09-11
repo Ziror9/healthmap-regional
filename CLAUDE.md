@@ -16,8 +16,11 @@ historico.
 O produto **nao** e sistema clinico nem transacional hospitalar. E um produto
 analitico de apoio a decisao de gestao, alimentado por dados publicos agregados.
 
-**Estado atual: Fase 5.10 (higienizacao REAL/DEMO + readequacao SIH)
-concluida.** As analises do produto usam REAL; a base DEMO continua integra
+**Estado atual: Fase 5.11 (Fluxo Assistencial) concluida e interface
+congelada para apresentacao (redesign E1-E6).** A ultima fase de dados
+continua sendo a 5.10 (higienizacao REAL/DEMO + readequacao SIH).
+
+As analises do produto usam REAL; a base DEMO continua integra
 no banco e nos testes, mas nao alimenta mais as paginas analiticas (Fase
 5.9). Na Fase 5.10 o isolamento REAL/DEMO das RiskConfigs foi corrigido na
 origem e `TAXA_INTERNACAO_10K_HAB` passou de 1 para 639 dos 645 municipios,
@@ -224,8 +227,9 @@ validado.
   leitos, o termo e **Pressao Hospitalar Estimada**, com natureza `ESTIMATIVA`.
 - Pesos sao **configuraveis e versionados** em banco (`RiskConfig`), nunca
   embutidos em codigo. Nenhum peso e oficial ate ser calibrado e validado.
-- A fonte do componente de vulnerabilidade ainda nao foi definida; o componente e
-  pluggavel via `IndicadorDefinicao`.
+- A fonte do componente de vulnerabilidade e o **IPVS/SEADE** desde a Fase 5.4
+  (natureza `ESTIMATIVA`, agregado por municipio via media ponderada por
+  populacao); o componente segue pluggavel via `IndicadorDefinicao`.
 
 Metodologia: [`docs/risk-methodology.md`](docs/risk-methodology.md).
 
