@@ -26,11 +26,11 @@ Produto navegável sobre dados **reais** de 2024:
 | Interface          | Visão Geral, Radar de Risco, Radar Municipal (mapa interativo por indicador), Fluxo Assistencial (mapa de arcos), Regiões de Saúde (Radar Regional), catálogo e ficha de município, Metodologia, Sobre                                                                                 |
 | Qualidade          | typecheck, lint e build limpos; 388 testes automatizados (API 67, DB 132, Risk 43, ETL 117, Web 29)                                                                                                                                                  |
 
-**Em andamento:** redesign de interface — etapas E1 a E6 concluídas (design
-system, mapa, Visão Geral, Radares, Fluxo Assistencial — Fase 5.11, ver
+**Entrega congelada para apresentação.** Redesign de interface concluído
+(etapas E1 a E6: design system, mapa, Visão Geral, Radares, Fluxo
+Assistencial — Fase 5.11, ver
 [`docs/fase-5.11-relatorio.md`](docs/fase-5.11-relatorio.md) —, Regiões de
-Saúde); ver [`docs/design-system.md`](docs/design-system.md). Próxima etapa:
-congelamento e fechamento.
+Saúde); ver [`docs/design-system.md`](docs/design-system.md).
 
 **Fora do escopo atual:** autenticação e controle de acesso (Fase 6). A
 aplicação **não deve ser exposta fora de ambiente local**. Todas as limitações
@@ -221,6 +221,7 @@ Links prontos para a demonstração (os ids valem para o snapshot versionado):
 | Sintoma                                                                                            | Causa                                                                                                           | O que fazer                                                                                                                              |
 | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `failed to connect to the docker API at npipe:////./pipe/dockerDesktopLinuxEngine`                 | Docker Desktop fechado                                                                                          | Abra o Docker Desktop e espere estabilizar                                                                                               |
+| `npm install` falha com `[esbuild] Failed to find package "@esbuild/win32-x64"` | Download de uma dependência opcional interrompido na primeira instalação (antivírus ou rede instável) | Rode `npm install` de novo — a segunda tentativa conclui. **Não** apague o `package-lock.json` |
 | `npm run db:up` falha com `defina POSTGRES_USER no .env`                                           | Falta o arquivo `.env`                                                                                          | `Copy-Item .env.example .env` (passo 2)                                                                                                  |
 | `npm run db:up` falha com a porta `5432` em uso                                                    | Há um PostgreSQL instalado na própria máquina                                                                   | Pare o serviço local, **ou** troque `POSTGRES_PORT` no `.env` **e** a porta dentro da `DATABASE_URL`                                     |
 | `[snapshot] container healthmap-postgres nao encontrado`                                           | O banco não subiu                                                                                               | `npm run db:up` e espere o `healthy` (passo 4)                                                                                           |
